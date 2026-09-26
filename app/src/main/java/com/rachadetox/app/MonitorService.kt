@@ -84,11 +84,21 @@ class MonitorService : Service() {
                 }
             }
 
+            // Bloqueo automático: al llegar al límite, la app se cierra hasta mañana
+            if (used >= goal.limitMillis && store.autoBlockActive() && BlockerService.isEnabled(ctx) &&
+                !store.isBlockedToday(goal.pkg)
+            ) {
+                store.blockToday(listOf(goal.pkg))
+                BlockerService.instance?.enforceNow()
+                once("auto", baseId + 3, "Hasta mañana, ${goal.label}", "Hoy ya le has dado su tiempo.")
+                continue
+            }
+
             when {
-                used > goal.limitMillis -> once(
+                goal.isOver(used) -> if (!info.todaySaved) once(
                     "over", baseId + 3,
                     "Hoy se ha nublado",
-                    "Te has pasado con ${goal.label}. Mañana vuelve a salir el sol."
+                    "Te has pasado con ${goal.label}. Toca aquí si quieres salvar tu racha."
                 )
 
                 left <= 60_000L -> once(

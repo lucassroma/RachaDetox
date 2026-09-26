@@ -1,5 +1,11 @@
 package com.rachadetox.app
 
+import java.time.LocalDate
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.material3.Switch
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.Canvas
+import android.net.Uri
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -125,8 +131,7 @@ fun PermissionScreen() {
             Text(
                 "Para saber cuánto tiempo pasas en cada app necesito el permiso " +
                     "«Acceso a datos de uso».\n\n" +
-                    "Busca Alba en la lista, actívalo y vuelve aquí.\n\n" +
-                    "Nada sale de tu móvil.",
+                    "Busca Alba en la lista, actívalo y vuelve aquí.",
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
             )
@@ -162,6 +167,45 @@ fun MainScreen(resumeTick: Int) {
     var editingIsNew by remember { mutableStateOf(false) }
     var showWhy by rememberSaveable { mutableStateOf(false) }
     var showProfile by rememberSaveable { mutableStateOf(false) }
+    var refresh by remember { mutableIntStateOf(0) }
+    var showBlockSetup by remember { mutableStateOf(false) }
+    var pendingAction by rememberSaveable { mutableStateOf<String?>(null) }
+    val autoState = remember(resumeTick, refresh) { store.autoBlockActive() to store.autoBlockTurningOff() }
+    val blockedToday = remember(resumeTick, refresh) { store.blockedTodayPackages().toSet() }
+
+    fun runAction(action: String) {
+        when (action) {
+            "save" -> {
+                val pkgs = info?.overToday?.map { it.pkg }.orEmpty()
+                if (pkgs.isNotEmpty()) {
+                    store.blockToday(pkgs)
+                    store.markSaved(LocalDate.now())
+                    BlockerService.instance?.enforceNow()
+                }
+            }
+            "auto" -> store.setAutoBlock(true)
+        }
+        refresh++
+    }
+
+    fun request(action: String) {
+        if (BlockerService.isEnabled(context)) {
+            runAction(action)
+        } else {
+            pendingAction = action
+            showBlockSetup = true
+        }
+    }
+
+    // Al volver de Ajustes con el permiso concedido, terminamos lo que estaba pendiente
+    LaunchedEffect(resumeTick) {
+        val action = pendingAction
+        if (action != null && BlockerService.isEnabled(context)) {
+            pendingAction = null
+            showBlockSetup = false
+            runAction(action)
+        }
+    }
 
     // Permiso de notificaciones (Android 13+)
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -180,7 +224,7 @@ fun MainScreen(resumeTick: Int) {
     }
 
     // Refresca el tiempo de hoy cada 5 segundos mientras la app está abierta
-    LaunchedEffect(goals, resumeTick) {
+    LaunchedEffect(goals, resumeTick, refresh) {
         while (true) {
             val result = withContext(Dispatchers.Default) {
                 StreakEngine.evaluatePastDays(context)
@@ -241,6 +285,11 @@ fun MainScreen(resumeTick: Int) {
             }
             item { StreakCard(info, hasGoals = goals.isNotEmpty()) }
 
+            val over = info?.overToday.orEmpty()
+            if (over.isNotEmpty() && info?.todaySaved != true) {
+                item { SaveStreakCard(over) { request("save") } }
+            }
+
             val currentInfo = info
             if (goals.isNotEmpty() && currentInfo != null) {
                 item { WeekCard(currentInfo.week) }
@@ -270,13 +319,21 @@ fun MainScreen(resumeTick: Int) {
             }
 
             items(goals, key = { it.pkg }) { goal ->
-                GoalCard(goal, usage[goal.pkg] ?: 0L) {
+                GoalCard(goal, usage[goal.pkg] ?: 0L, blocked = goal.pkg in blockedToday) {
                     editingIsNew = false
                     editing = goal
                 }
             }
 
             if (goals.isNotEmpty()) {
+                item {
+                    AutoBlockCard(active = autoState.first, turningOff = autoState.second) { on ->
+                        if (on) request("auto") else {
+                            store.setAutoBlock(false)
+                            refresh++
+                        }
+                    }
+                }
                 item { BatteryTip() }
             }
         }
@@ -292,6 +349,13 @@ fun MainScreen(resumeTick: Int) {
                 editing = Goal(app.pkg, app.label, 30)
             },
         )
+    }
+
+    if (showBlockSetup) {
+        BlockSetupDialog(onDismiss = {
+            showBlockSetup = false
+            pendingAction = null
+        })
     }
 
     editing?.let { goal ->
@@ -327,6 +391,7 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
         !hasGoals -> "Elige una app y cuánto tiempo al día quieres darle."
         info == null -> "…"
         cloudy -> "Hoy se ha nublado. Mañana vuelve a salir el sol."
+        info.todaySaved -> "Día salvado. Medio sol, pero sol."
         else -> "Aguanta hasta medianoche y mañana serán ${current + 1}."
     }
 
@@ -393,6 +458,20 @@ fun WeekCard(week: List<DayStatus>) {
 
 @Composable
 private fun DayDot(day: DayStatus) {
+    if (day.saved && day.ok == true) {
+        Box(
+            Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surface)
+                .border(BorderStroke(2.dp, Green), CircleShape),
+        ) {
+            Canvas(Modifier.fillMaxSize()) {
+                drawArc(AlbaColors.Sol, startAngle = 180f, sweepAngle = 180f, useCenter = true)
+            }
+        }
+        return
+    }
     val (bg, symbol, fg) = when (day.ok) {
         true -> Triple(Green, "✓", AlbaColors.Noche)
         false -> Triple(Muted, "·", AlbaColors.Arena)
@@ -416,15 +495,16 @@ private fun DayDot(day: DayStatus) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GoalCard(goal: Goal, used: Long, onClick: () -> Unit) {
+fun GoalCard(goal: Goal, used: Long, blocked: Boolean = false, onClick: () -> Unit) {
     val fraction = (used.toFloat() / goal.limitMillis).coerceIn(0f, 1f)
-    val over = used > goal.limitMillis
+    val over = goal.isOver(used)
     val barColor = when {
         over -> Muted
         fraction >= 0.8f -> Amber
         else -> Green
     }
     val status = when {
+        blocked -> "Cerrada hasta mañana"
         over -> "Hoy te has pasado ${formatDuration(used - goal.limitMillis)}"
         goal.limitMillis - used < 60_000L -> "Te queda menos de 1 min"
         else -> "Te quedan ${formatDuration(goal.limitMillis - used)}"
@@ -689,4 +769,77 @@ fun WhyEntryCard(onClick: () -> Unit) {
             Text("→", style = MaterialTheme.typography.titleLarge)
         }
     }
+}
+
+@Composable
+fun SaveStreakCard(apps: List<Goal>, onSave: () -> Unit) {
+    val names = apps.joinToString(" y ") { it.label }
+    Card(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = AlbaColors.Bruma, contentColor = AlbaColors.Arena),
+    ) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("¿Salvar tu racha?", style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
+            Text(
+                "Cierra $names lo que queda de día y hoy seguirá contando. Será un día a medias: medio sol.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Button(
+                onClick = onSave,
+                colors = ButtonDefaults.buttonColors(containerColor = AlbaColors.Sol, contentColor = AlbaColors.Noche),
+            ) { Text("Cerrar $names hasta mañana") }
+        }
+    }
+}
+
+@Composable
+fun AutoBlockCard(active: Boolean, turningOff: Boolean, onToggle: (Boolean) -> Unit) {
+    OutlinedCard(Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Que Alba cierre la puerta", style = MaterialTheme.typography.titleMedium, fontFamily = FontFamily.Serif)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    if (turningOff) "Se apagará mañana. Hasta entonces, sigue de tu lado."
+                    else "Cuando llegues a tu límite, la app se queda cerrada hasta mañana. Así no tienes que pelearte tú.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Switch(checked = active && !turningOff, onCheckedChange = onToggle)
+        }
+    }
+}
+
+@Composable
+fun BlockSetupDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Un permiso más", fontFamily = FontFamily.Serif) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Para cerrar apps, Alba usa el permiso de Accesibilidad. Solo ve qué app se abre, no lo que hay en tu pantalla.")
+                Text("1. Pulsa «Abrir Accesibilidad», busca Alba (a veces dentro de «Apps instaladas» o «Servicios») y actívalo.")
+                Text("2. Si el interruptor sale gris: pulsa «Ajustes de Alba», toca los tres puntos de arriba a la derecha, elige «Permitir ajustes restringidos» y repite el paso 1.")
+                TextButton(onClick = {
+                    try {
+                        context.startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    } catch (_: Exception) {
+                    }
+                }) { Text("Ajustes de Alba") }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { openSettings(context, Settings.ACTION_ACCESSIBILITY_SETTINGS) }) {
+                Text("Abrir Accesibilidad")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Ahora no") } },
+    )
 }

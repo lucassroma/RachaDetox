@@ -3,7 +3,7 @@ package com.rachadetox.app
 import android.content.Context
 import java.time.LocalDate
 
-data class DayStatus(val date: LocalDate, val ok: Boolean?, val isToday: Boolean)
+data class DayStatus(val date: LocalDate, val ok: Boolean?, val isToday: Boolean, val saved: Boolean = false)
 
 data class StreakInfo(
     /** Días seguidos cumpliendo (si hoy ya te has pasado, vale 0). */
@@ -13,6 +13,10 @@ data class StreakInfo(
     val todayOk: Boolean,
     /** Últimos 7 días, del más antiguo a hoy. */
     val week: List<DayStatus>,
+    /** Hoy te pasaste pero aceptaste el bloqueo. */
+    val todaySaved: Boolean = false,
+    /** Apps en las que hoy te has pasado. */
+    val overToday: List<Goal> = emptyList(),
 )
 
 /**
@@ -42,7 +46,7 @@ object StreakEngine {
         val packages = goals.map { it.pkg }.toSet()
         while (day.isBefore(today)) {
             val usage = UsageTracker.usageForDay(context, packages, day)
-            store.putDayResult(day, allWithinLimits(goals, usage))
+            store.putDayResult(day, allWithinLimits(goals, usage) || store.isSaved(day))
             store.setLastEvaluated(day)
             day = day.plusDays(1)
         }
@@ -52,7 +56,7 @@ object StreakEngine {
     }
 
     fun allWithinLimits(goals: List<Goal>, usage: Map<String, Long>): Boolean =
-        goals.all { (usage[it.pkg] ?: 0L) <= it.limitMillis }
+        goals.none { it.isOver(usage[it.pkg] ?: 0L) }
 
     private fun completedStreak(store: Store, today: LocalDate): Int {
         var count = 0
@@ -67,18 +71,24 @@ object StreakEngine {
     fun info(context: Context, goals: List<Goal>, usageToday: Map<String, Long>): StreakInfo {
         val store = Store(context)
         val today = LocalDate.now()
-        val todayOk = allWithinLimits(goals, usageToday)
+        val within = allWithinLimits(goals, usageToday)
+        val todaySaved = !within && store.isSaved(today)
+        val todayOk = within || todaySaved
         val completed = completedStreak(store, today)
         val current = if (todayOk) completed else 0
 
         val week = (6 downTo 0).map { back ->
             val d = today.minusDays(back.toLong())
             if (back == 0) {
-                DayStatus(d, if (todayOk) null else false, isToday = true)
+                DayStatus(d, if (todaySaved) true else if (todayOk) null else false, isToday = true, saved = todaySaved)
             } else {
-                DayStatus(d, store.dayResult(d), isToday = false)
+                DayStatus(d, store.dayResult(d), isToday = false, saved = store.isSaved(d))
             }
         }
-        return StreakInfo(current, maxOf(store.bestStreak(), completed), todayOk, week)
+        return StreakInfo(
+            current, maxOf(store.bestStreak(), completed), todayOk, week,
+            todaySaved = todaySaved,
+            overToday = goals.filter { it.isOver(usageToday[it.pkg] ?: 0L) },
+        )
     }
 }

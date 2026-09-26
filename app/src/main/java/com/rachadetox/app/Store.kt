@@ -8,6 +8,13 @@ import java.time.LocalDate
 /** Una app vigilada y su límite diario. */
 data class Goal(val pkg: String, val label: String, val limitMinutes: Int) {
     val limitMillis: Long get() = limitMinutes * 60_000L
+
+    /** Te has pasado (con 1 minuto de margen, porque la comprobación no es instantánea). */
+    fun isOver(usedMillis: Long): Boolean = usedMillis > limitMillis + GRACE_MS
+
+    companion object {
+        const val GRACE_MS = 60_000L
+    }
 }
 
 /** Guarda todo en el propio móvil (SharedPreferences). Nada sale del teléfono. */
@@ -98,7 +105,62 @@ class Store(context: Context) {
         if (kept.size != set.size) prefs.edit().putStringSet(KEY_ALERTS, HashSet(kept)).apply()
     }
 
+    // ---------- Bloqueos ----------
+
+    /** Apps bloqueadas hoy (hasta medianoche). */
+    fun isBlockedToday(pkg: String): Boolean =
+        prefs.getStringSet(KEY_BLOCKS, emptySet())?.contains("${LocalDate.now()}|$pkg") == true
+
+    fun blockToday(pkgs: Collection<String>) {
+        val today = LocalDate.now().toString()
+        val set = HashSet((prefs.getStringSet(KEY_BLOCKS, emptySet()) ?: emptySet()).filter { it.startsWith(today) })
+        pkgs.forEach { set.add("$today|$it") }
+        prefs.edit().putStringSet(KEY_BLOCKS, set).apply()
+    }
+
+    fun blockedTodayPackages(): List<String> {
+        val prefix = "${LocalDate.now()}|"
+        return (prefs.getStringSet(KEY_BLOCKS, emptySet()) ?: emptySet())
+            .filter { it.startsWith(prefix) }
+            .map { it.removePrefix(prefix) }
+    }
+
+    /** Días en los que te pasaste pero aceptaste el bloqueo: cuentan para la racha. */
+    fun isSaved(day: LocalDate): Boolean =
+        prefs.getStringSet(KEY_SAVED, emptySet())?.contains(day.toString()) == true
+
+    fun markSaved(day: LocalDate) {
+        val set = HashSet(prefs.getStringSet(KEY_SAVED, emptySet()) ?: emptySet())
+        set.add(day.toString())
+        prefs.edit().putStringSet(KEY_SAVED, set).apply()
+    }
+
+    /** Bloqueo automático al llegar al límite. Apagarlo solo surte efecto al día siguiente. */
+    fun autoBlockActive(): Boolean {
+        if (!prefs.getBoolean(KEY_AUTO, false)) return false
+        val offFrom = prefs.getString(KEY_AUTO_OFF, null)?.let { LocalDate.parse(it) } ?: return true
+        if (!LocalDate.now().isBefore(offFrom)) {
+            prefs.edit().putBoolean(KEY_AUTO, false).remove(KEY_AUTO_OFF).apply()
+            return false
+        }
+        return true
+    }
+
+    fun autoBlockTurningOff(): Boolean = autoBlockActive() && prefs.getString(KEY_AUTO_OFF, null) != null
+
+    fun setAutoBlock(on: Boolean) {
+        if (on) {
+            prefs.edit().putBoolean(KEY_AUTO, true).remove(KEY_AUTO_OFF).apply()
+        } else if (autoBlockActive()) {
+            prefs.edit().putString(KEY_AUTO_OFF, LocalDate.now().plusDays(1).toString()).apply()
+        }
+    }
+
     companion object {
+        private const val KEY_BLOCKS = "blocks"
+        private const val KEY_SAVED = "saved_days"
+        private const val KEY_AUTO = "auto_block"
+        private const val KEY_AUTO_OFF = "auto_block_off_from"
         private const val KEY_GOALS = "goals"
         private const val KEY_START = "start_date"
         private const val KEY_LAST_EVAL = "last_evaluated"

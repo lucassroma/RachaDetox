@@ -1,5 +1,12 @@
 package com.rachadetox.app
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
@@ -57,6 +64,16 @@ import kotlin.math.sin
 fun WhyScreen(onBack: () -> Unit) {
     BackHandler { onBack() }
     val context = LocalContext.current
+    var dailyAvg by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(Unit) {
+        dailyAvg = withContext(Dispatchers.Default) {
+            try {
+                Analytics.build(context, Store(context).goals()).scrollWeekMs / 7
+            } catch (_: Exception) {
+                null
+            }
+        }
+    }
 
     Surface(Modifier.fillMaxSize()) {
         Column(
@@ -208,7 +225,60 @@ fun WhyScreen(onBack: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            HelpCard(dailyAvg) { number ->
+                try {
+                    context.startActivity(
+                        Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                } catch (_: Exception) {
+                }
+            }
             Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun HelpCard(dailyAvg: Long?, call: (String) -> Unit) {
+    val heavy = dailyAvg != null && dailyAvg >= 3 * 3_600_000L
+    Card(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (heavy) AlbaColors.Bruma else MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = if (heavy) AlbaColors.Arena else MaterialTheme.colorScheme.onSurface,
+        ),
+    ) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                "¿Pasas más de 3 horas al día deslizando? ¿Te cuesta parar aunque quieras?",
+                style = MaterialTheme.typography.titleLarge,
+                fontFamily = FontFamily.Serif,
+            )
+            if (heavy && dailyAvg != null) {
+                Text(
+                    "Esta semana tu media es de ${formatDuration(dailyAvg)} al día.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = AlbaColors.Sol,
+                )
+            }
+            Text("No tienes por qué hacerlo solo.", style = MaterialTheme.typography.bodyLarge)
+            HelpLine("017", "INCIBE · gratuito y confidencial") { call("017") }
+            HelpLine("900 20 20 10", "Fundación ANAR · para menores de 18 años") { call("900202010") }
+        }
+    }
+}
+
+@Composable
+private fun HelpLine(number: String, who: String, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = ButtonDefaults.buttonColors(containerColor = AlbaColors.Sol, contentColor = AlbaColors.Noche),
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Llamar al $number", style = MaterialTheme.typography.titleMedium)
+            Text(who, style = MaterialTheme.typography.labelMedium)
         }
     }
 }
