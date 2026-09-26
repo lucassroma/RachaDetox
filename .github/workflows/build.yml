@@ -30,6 +30,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk RachaDetox.apk
+          cp app/build/outputs/apk/debug/app-debug.apk Alba.apk
           gh release delete ultima -y --cleanup-tag || true
-          gh release create ultima RachaDetox.apk --title "Racha Detox (última versión)" --notes "Descarga RachaDetox.apk desde el móvil e instálalo."
+          gh release create ultima Alba.apk --title "Alba (última versión)" --notes "Descarga Alba.apk desde el móvil e instálalo encima de la versión anterior."
