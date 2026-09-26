@@ -12,8 +12,18 @@ android {
         applicationId = "com.rachadetox.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
+    }
+
+    // Firma fija: permite instalar versiones nuevas encima sin perder los datos
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("alba-debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
