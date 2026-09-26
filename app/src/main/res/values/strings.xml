@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Alba</string>
+    <string name="blocker_description">Alba solo mira qué app se abre para cerrar las que hayas bloqueado hoy. No lee lo que hay en tu pantalla.</string>
 </resources>
