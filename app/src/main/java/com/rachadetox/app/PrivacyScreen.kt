@@ -51,8 +51,8 @@ fun PrivacyScreen(onBack: () -> Unit) {
                 .padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            TextButton(onClick = onBack) { Text("← Volver") }
-            Text("Tus datos son tuyos", style = MaterialTheme.typography.headlineMedium, fontFamily = FontFamily.Serif)
+            TextButton(onClick = onBack) { Text(tr("← Volver", "← Back", "← Indietro")) }
+            Text(tr("Tus datos son tuyos", "Your data is yours", "I tuoi dati sono tuoi"), style = MaterialTheme.typography.headlineMedium, fontFamily = FontFamily.Serif)
 
             // El compromiso
             Card(
@@ -62,57 +62,96 @@ fun PrivacyScreen(onBack: () -> Unit) {
             ) {
                 Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        "Alba no vende, no comparte y no envía tus datos a nadie. Nunca.",
+                        tr(
+                            "Alba no vende, no comparte y no envía tus datos a nadie. Nunca.",
+                            "Alba doesn't sell, share or send your data to anyone. Ever.",
+                            "Alba non vende, non condivide e non invia i tuoi dati a nessuno. Mai.",
+                        ),
                         style = MaterialTheme.typography.titleLarge,
                         fontFamily = FontFamily.Serif,
                     )
                     Text(
-                        "Y no es solo una promesa: Alba no tiene permiso para conectarse a Internet. " +
-                            "Aunque quisiera, no podría mandar tus datos a ningún sitio.",
+                        tr(
+                            "Y no es solo una promesa: Alba no tiene permiso para conectarse a Internet. " +
+                                "Aunque quisiera, no podría mandar tus datos a ningún sitio.",
+                            "And it's not just a promise: Alba has no permission to connect to the Internet. " +
+                                "Even if it wanted to, it couldn't send your data anywhere.",
+                            "E non è solo una promessa: Alba non ha l'autorizzazione per connettersi a Internet. " +
+                                "Anche volendo, non potrebbe inviare i tuoi dati da nessuna parte.",
+                        ),
                         style = MaterialTheme.typography.bodyLarge,
                     )
-                    Text("— El equipo de Alba", style = MaterialTheme.typography.labelLarge, color = AlbaColors.Sol)
+                    Text(tr("— El equipo de Alba", "— The Alba team", "— Il team di Alba"), style = MaterialTheme.typography.labelLarge, color = AlbaColors.Sol)
                 }
             }
 
             PrivacyBlock(
-                "Compruébalo tú",
+                tr("Compruébalo tú", "Check it yourself", "Verificalo tu"),
                 listOf(
-                    "En Ajustes → App → Alba, el uso de datos móviles y de Wi-Fi es 0 B.",
-                    "Pon el móvil en modo avión: Alba funciona exactamente igual.",
-                    "El código es público. Cualquiera puede leerlo y ver que no hay Internet, anuncios ni analíticas.",
+                    tr(
+                        "En Ajustes → App → Alba, el uso de datos móviles y de Wi-Fi es 0 B.",
+                        "In Settings → Apps → Alba, mobile and Wi-Fi data usage is 0 B.",
+                        "In Impostazioni → App → Alba, l'uso di dati mobili e Wi-Fi è 0 B.",
+                    ),
+                    tr(
+                        "Pon el móvil en modo avión: Alba funciona exactamente igual.",
+                        "Put your phone in airplane mode: Alba works exactly the same.",
+                        "Metti il telefono in modalità aereo: Alba funziona esattamente allo stesso modo.",
+                    ),
+                    tr(
+                        "El código es público. Cualquiera puede leerlo y ver que no hay Internet, anuncios ni analíticas.",
+                        "The code is public. Anyone can read it and see there's no Internet, ads or analytics.",
+                        "Il codice è pubblico. Chiunque può leggerlo e vedere che non ci sono Internet, pubblicità né analisi.",
+                    ),
                 ),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(onClick = {
                     open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName)))
-                }) { Text("Ver en Ajustes") }
+                }) { Text(tr("Ver en Ajustes", "See in Settings", "Vedi in Impostazioni")) }
                 OutlinedButton(onClick = { open(Intent(Intent.ACTION_VIEW, Uri.parse(REPO_URL))) }) {
-                    Text("Ver el código")
+                    Text(tr("Ver el código", "See the code", "Vedi il codice"))
                 }
             }
 
             PrivacyBlock(
-                "Qué guarda Alba",
+                tr("Qué guarda Alba", "What Alba stores", "Cosa salva Alba"),
                 listOf(
-                    "Las apps que eliges y sus límites.",
-                    "Tu racha y qué días la cumpliste.",
-                    "Qué apps has bloqueado hoy.",
-                    "Todo se queda en tu móvil. Si desinstalas Alba, se borra.",
+                    tr("Las apps que eliges y sus límites.", "The apps you choose and their limits.", "Le app che scegli e i loro limiti."),
+                    tr("Tu racha y qué días la cumpliste.", "Your streak and which days you kept it.", "La tua serie e in quali giorni l'hai rispettata."),
+                    tr("Qué apps has bloqueado hoy.", "Which apps you've blocked today.", "Quali app hai bloccato oggi."),
+                    tr(
+                        "Todo se queda en tu móvil. Si desinstalas Alba, se borra.",
+                        "Everything stays on your phone. If you uninstall Alba, it's deleted.",
+                        "Tutto resta sul tuo telefono. Se disinstalli Alba, viene cancellato.",
+                    ),
                 ),
             )
 
             PrivacyBlock(
-                "Qué lee Alba y para qué",
+                tr("Qué lee Alba y para qué", "What Alba reads and why", "Cosa legge Alba e perché"),
                 listOf(
-                    "Tiempo de uso de las apps (permiso «Acceso a datos de uso»): para tu racha, tus avisos y tu perfil.",
-                    "Qué app se abre (permiso de Accesibilidad, solo si activas el bloqueo): para cerrar las apps bloqueadas. No lee lo que hay en tu pantalla.",
+                    tr(
+                        "Tiempo de uso de las apps (permiso «Acceso a datos de uso»): para tu racha, tus avisos y tu perfil.",
+                        "App usage time («Usage access» permission): for your streak, your reminders and your profile.",
+                        "Tempo di utilizzo delle app (autorizzazione «Accesso ai dati di utilizzo»): per la tua serie, i tuoi avvisi e il tuo profilo.",
+                    ),
+                    tr(
+                        "Qué app se abre (permiso de Accesibilidad, solo si activas el bloqueo): para cerrar las apps bloqueadas. No lee lo que hay en tu pantalla.",
+                        "Which app opens (Accessibility permission, only if you turn on blocking): to close blocked apps. It doesn't read what's on your screen.",
+                        "Quale app si apre (autorizzazione Accessibilità, solo se attivi il blocco): per chiudere le app bloccate. Non legge cosa c'è sullo schermo.",
+                    ),
                 ),
             )
 
             PrivacyBlock(
-                "Qué no hay",
-                listOf("Ni cuentas.", "Ni anuncios.", "Ni analíticas ni rastreadores.", "Ni servidores."),
+                tr("Qué no hay", "What there isn't", "Cosa non c'è"),
+                listOf(
+                    tr("Ni cuentas.", "No accounts.", "Nessun account."),
+                    tr("Ni anuncios.", "No ads.", "Nessuna pubblicità."),
+                    tr("Ni analíticas ni rastreadores.", "No analytics or trackers.", "Nessuna analisi né tracciamento."),
+                    tr("Ni servidores.", "No servers.", "Nessun server."),
+                ),
             )
             Spacer(Modifier.height(24.dp))
         }
@@ -139,7 +178,11 @@ private fun PrivacyBlock(title: String, lines: List<String>) {
 fun PrivacyEntryCard(onClick: () -> Unit) {
     TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Text(
-            "Tus datos no se venden. Alba ni siquiera tiene acceso a Internet →",
+            tr(
+                "Tus datos no se venden. Alba ni siquiera tiene acceso a Internet →",
+                "Your data isn't sold. Alba doesn't even have Internet access →",
+                "I tuoi dati non vengono venduti. Alba non ha nemmeno accesso a Internet →",
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

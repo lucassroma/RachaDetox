@@ -40,7 +40,7 @@ class BlockActivity : ComponentActivity() {
             } catch (_: Exception) {
                 null
             }
-        } ?: "esta app"
+        } ?: tr("esta app", "this app", "questa app")
 
         setContent {
             AlbaTheme {
@@ -57,7 +57,7 @@ class BlockActivity : ComponentActivity() {
                     Image(painterResource(R.drawable.ic_sun), contentDescription = null, modifier = Modifier.size(110.dp))
                     Spacer(Modifier.height(20.dp))
                     Text(
-                        "Hasta mañana.",
+                        tr("Hasta mañana.", "See you tomorrow.", "A domani."),
                         color = AlbaColors.Arena,
                         fontFamily = FontFamily.Serif,
                         fontSize = 34.sp,
@@ -65,7 +65,11 @@ class BlockActivity : ComponentActivity() {
                     )
                     Spacer(Modifier.height(14.dp))
                     Text(
-                        "Hoy ya le has dado a $label su tiempo.\nLo demás puede esperar.",
+                        tr(
+                            "Hoy ya le has dado a $label su tiempo.\nLo demás puede esperar.",
+                            "You have already given $label its time today.\nEverything else can wait.",
+                            "Oggi hai già dato a $label il suo tempo.\nIl resto può aspettare.",
+                        ),
                         color = AlbaColors.Arena.copy(alpha = 0.85f),
                         fontSize = 18.sp,
                         lineHeight = 27.sp,
@@ -75,7 +79,7 @@ class BlockActivity : ComponentActivity() {
                     Button(
                         onClick = { goHome() },
                         colors = ButtonDefaults.buttonColors(containerColor = AlbaColors.Sol, contentColor = AlbaColors.Noche),
-                    ) { Text("Mira arriba") }
+                    ) { Text(tr("Mira arriba", "Look up", "Guarda in alto")) }
                 }
             }
         }

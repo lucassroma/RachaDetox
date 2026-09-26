@@ -16,14 +16,14 @@ object Notifier {
     fun createChannels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_MONITOR, "Alba en segundo plano", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Muestra tu racha y tu tiempo de hoy"
+            NotificationChannel(CHANNEL_MONITOR, tr("Alba en segundo plano", "Alba in the background", "Alba in background"), NotificationManager.IMPORTANCE_LOW).apply {
+                description = tr("Muestra tu racha y tu tiempo de hoy", "Shows your streak and your time today", "Mostra la tua serie e il tuo tempo di oggi")
                 setShowBadge(false)
             }
         )
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_ALERTS, "Avisos", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Te avisa cuando te queda poco tiempo en una app"
+            NotificationChannel(CHANNEL_ALERTS, tr("Avisos", "Reminders", "Avvisi"), NotificationManager.IMPORTANCE_HIGH).apply {
+                description = tr("Te avisa cuando te queda poco tiempo en una app", "Lets you know when you are running out of time in an app", "Ti avvisa quando ti resta poco tempo in un'app")
             }
         )
     }

@@ -265,41 +265,60 @@ object Analytics {
 // ------------------------------------------------------------------ frases
 
 /** Qué podrías haber hecho con ese tiempo. De menor a mayor. */
-private val EQUIVALENTS = listOf(
-    1.0 to "caminar 5 km",
-    1.0 to "llamar a tu abuela sin prisa",
-    1.5 to "cocinar algo de verdad",
-    3.0 to "ver una película y media",
-    3.0 to "leer 100 páginas",
-    7.0 to "leer una novela entera",
-    8.0 to "dormir una noche completa",
-    11.0 to "ver El Señor de los Anillos entero, en versión extendida",
-    14.0 to "caminar de Madrid a Toledo",
-    14.0 to "aprender a correr 5 km seguidos",
-    20.0 to "tocar tus primeras canciones al piano",
-    40.0 to "escuchar el Quijote entero",
-    100.0 to "llegar a un nivel básico de un idioma nuevo",
+private val EQUIVALENTS: List<Pair<Double, () -> String>> = listOf(
+    1.0 to { tr("caminar 5 km", "walk 5 km", "camminare per 5 km") },
+    1.0 to { tr("llamar a tu abuela sin prisa", "call your grandma with no rush", "chiamare tua nonna senza fretta") },
+    1.5 to { tr("cocinar algo de verdad", "cook a proper meal", "cucinare qualcosa di vero") },
+    3.0 to { tr("ver una película y media", "watch a movie and a half", "guardare un film e mezzo") },
+    3.0 to { tr("leer 100 páginas", "read 100 pages", "leggere 100 pagine") },
+    7.0 to { tr("leer una novela entera", "read a whole novel", "leggere un romanzo intero") },
+    8.0 to { tr("dormir una noche completa", "sleep a full night", "dormire una notte intera") },
+    11.0 to {
+        tr(
+            "ver El Señor de los Anillos entero, en versión extendida",
+            "watch the whole Lord of the Rings, extended edition",
+            "guardare tutto Il Signore degli Anelli, in versione estesa",
+        )
+    },
+    14.0 to { tr("caminar de Madrid a Toledo", "walk 70 km", "camminare da Firenze a Siena") },
+    14.0 to { tr("aprender a correr 5 km seguidos", "learn to run 5 km without stopping", "imparare a correre 5 km di fila") },
+    20.0 to { tr("tocar tus primeras canciones al piano", "play your first songs on the piano", "suonare le tue prime canzoni al pianoforte") },
+    40.0 to { tr("escuchar el Quijote entero", "listen to the whole of Don Quixote", "ascoltare tutto il Don Chisciotte") },
+    100.0 to {
+        tr(
+            "llegar a un nivel básico de un idioma nuevo",
+            "reach a basic level in a new language",
+            "raggiungere un livello base in una nuova lingua",
+        )
+    },
 )
 
 fun equivalentsFor(millis: Long): List<String> {
     val hours = millis / 3_600_000.0
-    return EQUIVALENTS.filter { it.first <= hours }.takeLast(3).reversed().map { it.second }
+    return EQUIVALENTS.filter { it.first <= hours }.takeLast(3).reversed().map { it.second() }
 }
 
-private val LANDMARKS = listOf(
-    "la Torre de Pisa" to 56.0,
-    "la Giralda" to 104.0,
-    "la Sagrada Família" to 172.0,
-    "la Torre Eiffel" to 330.0,
-    "el Burj Khalifa" to 828.0,
-    "el Teide" to 3715.0,
-    "el Everest" to 8849.0,
+private val LANDMARKS: List<Pair<() -> String, Double>> = listOf(
+    { tr("la Torre de Pisa", "the Leaning Tower of Pisa", "la Torre di Pisa") } to 56.0,
+    { tr("la Giralda", "the Giralda in Seville", "la Giralda di Siviglia") } to 104.0,
+    { tr("la Sagrada Família", "the Sagrada Família", "la Sagrada Família") } to 172.0,
+    { tr("la Torre Eiffel", "the Eiffel Tower", "la Torre Eiffel") } to 330.0,
+    { tr("el Burj Khalifa", "the Burj Khalifa", "il Burj Khalifa") } to 828.0,
+    { tr("el Teide", "Mount Teide", "il Teide") } to 3715.0,
+    { tr("el Everest", "Mount Everest", "l'Everest") } to 8849.0,
 )
 
 fun distancePhrase(meters: Double): String {
-    if (meters < 56) return "como un edificio de ${maxOf(1, (meters / 3).toInt())} pisos"
+    if (meters < 56) {
+        val floors = maxOf(1, (meters / 3).toInt())
+        return tr("como un edificio de $floors pisos", "like a $floors-storey building", "come un palazzo di $floors piani")
+    }
     val (name, h) = LANDMARKS.last { it.second <= meters }
     val ratio = meters / h
-    return if (ratio < 1.5) "más que ${name} (${h.toInt()} m)"
-    else "${String.format(java.util.Locale.forLanguageTag("es-ES"), "%.1f", ratio)} veces ${name}"
+    return if (ratio < 1.5) {
+        tr("más que ${name()} (${h.toInt()} m)", "taller than ${name()} (${h.toInt()} m)", "più di ${name()} (${h.toInt()} m)")
+    } else {
+        val x = String.format(Lang.locale, "%.1f", ratio)
+        tr("$x veces ${name()}", "$x times ${name()}", "$x volte ${name()}")
+    }
 }

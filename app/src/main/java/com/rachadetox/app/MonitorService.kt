@@ -31,7 +31,7 @@ class MonitorService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Notifier.createChannels(this)
-        val notification = Notifier.ongoing(this, "Alba", "Contando tu tiempo de hoy…")
+        val notification = Notifier.ongoing(this, "Alba", tr("Contando tu tiempo de hoy…", "Counting your time today…", "Sto contando il tuo tempo di oggi…"))
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(Notifier.ONGOING_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
@@ -90,34 +90,50 @@ class MonitorService : Service() {
             ) {
                 store.blockToday(listOf(goal.pkg))
                 BlockerService.instance?.enforceNow()
-                once("auto", baseId + 3, "Hasta mañana, ${goal.label}", "Hoy ya le has dado su tiempo.")
+                once(
+                    "auto", baseId + 3,
+                    tr("Hasta mañana, ${goal.label}", "See you tomorrow, ${goal.label}", "A domani, ${goal.label}"),
+                    tr("Hoy ya le has dado su tiempo.", "You have already given it its time today.", "Oggi gli hai già dato il suo tempo."),
+                )
                 continue
             }
 
             when {
                 goal.isOver(used) -> if (!info.todaySaved) once(
                     "over", baseId + 3,
-                    "Hoy se ha nublado",
-                    "Te has pasado con ${goal.label}. Toca aquí si quieres salvar tu racha."
+                    tr("Hoy se ha nublado", "Clouds rolled in today", "Oggi si è rannuvolato"),
+                    tr(
+                        "Te has pasado con ${goal.label}. Toca aquí si quieres salvar tu racha.",
+                        "You went over on ${goal.label}. Tap here if you want to save your streak.",
+                        "Hai superato il limite con ${goal.label}. Tocca qui se vuoi salvare la tua serie.",
+                    )
                 )
 
                 left <= 60_000L -> once(
                     "last", baseId + 2,
-                    "Un minuto más de ${goal.label}",
-                    if (info.current > 0) "¿Merece la pena? Llevas ${info.current} ${dias(info.current)} seguidos."
-                    else "¿Merece la pena?"
+                    tr("Un minuto más de ${goal.label}", "One more minute of ${goal.label}", "Ancora un minuto di ${goal.label}"),
+                    if (info.current > 0) tr("¿Merece la pena? ", "Is it worth it? ", "Ne vale la pena? ") + inARow(info.current) + "."
+                    else tr("¿Merece la pena?", "Is it worth it?", "Ne vale la pena?")
                 )
 
                 used >= goal.limitMillis * 8 / 10 -> once(
                     "80", baseId + 1,
-                    "Te quedan ${formatDuration(left)} de ${goal.label}",
-                    "Llevas ${formatDuration(used)} de ${formatMinutes(goal.limitMinutes)} hoy."
+                    tr(
+                        "Te quedan ${formatDuration(left)} de ${goal.label}",
+                        "${formatDuration(left)} of ${goal.label} left",
+                        "Ti restano ${formatDuration(left)} di ${goal.label}",
+                    ),
+                    tr(
+                        "Llevas ${formatDuration(used)} de ${formatMinutes(goal.limitMinutes)} hoy.",
+                        "You have used ${formatDuration(used)} of ${formatMinutes(goal.limitMinutes)} today.",
+                        "Hai usato ${formatDuration(used)} di ${formatMinutes(goal.limitMinutes)} oggi.",
+                    )
                 )
             }
         }
 
-        val title = if (info.todayOk) "${info.current} ${dias(info.current)} seguidos"
-        else "Hoy se ha nublado"
+        val title = if (info.todayOk) inARow(info.current)
+        else tr("Hoy se ha nublado", "Clouds rolled in today", "Oggi si è rannuvolato")
         val text = goals.joinToString(" · ") {
             "${it.label} ${formatDuration(usage[it.pkg] ?: 0L)}/${formatMinutes(it.limitMinutes)}"
         }
@@ -146,4 +162,11 @@ class MonitorService : Service() {
     }
 }
 
-fun dias(n: Int) = if (n == 1) "día" else "días"
+fun dias(n: Int) = if (n == 1) tr("día", "day", "giorno") else tr("días", "days", "giorni")
+
+/** "3 días seguidos" / "3 days in a row" / "3 giorni di fila" */
+fun inARow(n: Int) = tr(
+    "$n ${dias(n)} seguidos".replace("día seguidos", "día seguido"),
+    "$n ${dias(n)} in a row",
+    "$n ${dias(n)} di fila",
+)

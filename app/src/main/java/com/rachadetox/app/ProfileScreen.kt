@@ -1,7 +1,5 @@
 package com.rachadetox.app
 
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -62,7 +60,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as DayStyle
 import java.util.Locale
 
-private val ES = Locale.forLanguageTag("es-ES")
+private val ES: Locale get() = Lang.locale
 private val APP_COLORS = listOf(AlbaColors.Alba, AlbaColors.Sol, AlbaColors.Salvia, AlbaColors.Bruma, Color(0xFFB7A6D6))
 
 private fun hhmm(millis: Long): String =
@@ -79,7 +77,6 @@ fun ProfileScreen(goals: List<Goal>, onBack: () -> Unit) {
     val context = LocalContext.current
     var report by remember { mutableStateOf<ProfileReport?>(null) }
     var weekMode by rememberSaveable { mutableStateOf(true) }
-    var showAllApps by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         report = withContext(Dispatchers.Default) { Analytics.build(context, goals) }
@@ -94,8 +91,8 @@ fun ProfileScreen(goals: List<Goal>, onBack: () -> Unit) {
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            TextButton(onClick = onBack) { Text("← Volver") }
-            Text("Tu perfil", style = MaterialTheme.typography.headlineMedium, fontFamily = FontFamily.Serif)
+            TextButton(onClick = onBack) { Text(tr("← Volver", "← Back", "← Indietro")) }
+            Text(tr("Tu perfil", "Your profile", "Il tuo profilo"), style = MaterialTheme.typography.headlineMedium, fontFamily = FontFamily.Serif)
 
             val r = report
             if (r == null) {
@@ -106,16 +103,6 @@ fun ProfileScreen(goals: List<Goal>, onBack: () -> Unit) {
             }
 
             FreedomCard(r)
-
-            // Lo más impactante, arriba y bien grande
-            val tiles = insights(r)
-            if (tiles.isNotEmpty()) {
-                Text("Tu semana en números", style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
-                InsightGrid(tiles)
-            }
-            EquivalentsCard(r)
-
-            Text("Día a día", style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
 
             // Gráfico día / semana
             Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
@@ -141,22 +128,27 @@ fun ProfileScreen(goals: List<Goal>, onBack: () -> Unit) {
                         )
                     }
                     if (apps.isEmpty()) {
-                        Text("Todavía no hay datos para este periodo.", style = MaterialTheme.typography.bodyMedium)
+                        Text(tr("Todavía no hay datos para este periodo.", "No data for this period yet.", "Ancora nessun dato per questo periodo."), style = MaterialTheme.typography.bodyMedium)
                     }
-                    apps.take(if (showAllApps) 30 else 5).forEach { app ->
+                    apps.take(8).forEachIndexed { i, app ->
                         AppRow(app, colors[app.pkg] ?: other)
-                    }
-                    if (apps.size > 5) {
-                        TextButton(onClick = { showAllApps = !showAllApps }) {
-                            Text(if (showAllApps) "Ver menos" else "Ver todas (${apps.size})")
-                        }
                     }
                 }
             }
 
+            ScrollCard(r, weekMode)
+            HabitsCard(r)
+            EquivalentsCard(r)
+
             Text(
-                "Los vídeos se estiman suponiendo 45 s por vídeo en apps como TikTok, Instagram o YouTube. " +
-                    "Android solo guarda unos días de detalle, así que algunos datos antiguos pueden faltar.",
+                tr(
+                    "Los vídeos se estiman suponiendo 45 s por vídeo en apps como TikTok, Instagram o YouTube. " +
+                        "Android solo guarda unos días de detalle, así que algunos datos antiguos pueden faltar.",
+                    "Videos are estimated assuming 45 s per video in apps like TikTok, Instagram or YouTube. " +
+                        "Android only keeps a few days of detail, so some older data may be missing.",
+                    "I video sono stimati considerando 45 s per video in app come TikTok, Instagram o YouTube. " +
+                        "Android conserva solo pochi giorni di dettaglio, quindi alcuni dati più vecchi potrebbero mancare.",
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -175,12 +167,37 @@ private fun FreedomCard(r: ProfileReport) {
     val worse = prev != null && -diff >= 15 * 60_000L
 
     val (title, sub) = when {
-        better -> "Esta semana has sido libre durante ${formatDuration(diff)} más." to
-            "que la semana anterior, en apps de scroll."
-        worse -> "Esta semana has pasado ${formatDuration(-diff)} más deslizando." to
-            "que la anterior. La próxima puede ser distinta."
-        else -> "Esta semana: ${formatDuration(r.scrollWeekMs)} en apps de scroll." to
-            if (prev == null) "La semana que viene podrás compararla con esta." else "Casi igual que la semana anterior."
+        better -> tr(
+            "Esta semana has sido libre durante ${formatDuration(diff)} más.",
+            "This week you've been free for ${formatDuration(diff)} more.",
+            "Questa settimana sei stato libero per ${formatDuration(diff)} in più.",
+        ) to tr(
+            "que la semana anterior, en apps de scroll.",
+            "than last week, in scrolling apps.",
+            "rispetto alla settimana scorsa, nelle app di scroll.",
+        )
+        worse -> tr(
+            "Esta semana has pasado ${formatDuration(-diff)} más deslizando.",
+            "This week you spent ${formatDuration(-diff)} more scrolling.",
+            "Questa settimana hai passato ${formatDuration(-diff)} in più a scorrere.",
+        ) to tr(
+            "que la anterior. La próxima puede ser distinta.",
+            "than the week before. Next week can be different.",
+            "rispetto alla precedente. La prossima può essere diversa.",
+        )
+        else -> tr(
+            "Esta semana: ${formatDuration(r.scrollWeekMs)} en apps de scroll.",
+            "This week: ${formatDuration(r.scrollWeekMs)} in scrolling apps.",
+            "Questa settimana: ${formatDuration(r.scrollWeekMs)} nelle app di scroll.",
+        ) to if (prev == null) {
+            tr(
+                "La semana que viene podrás compararla con esta.",
+                "Next week you'll be able to compare it with this one.",
+                "La prossima settimana potrai confrontarla con questa.",
+            )
+        } else {
+            tr("Casi igual que la semana anterior.", "About the same as last week.", "Quasi uguale alla settimana scorsa.")
+        }
     }
 
     Card(
@@ -210,8 +227,8 @@ private fun FreedomCard(r: ProfileReport) {
 @Composable
 private fun ModeChips(weekMode: Boolean, onChange: (Boolean) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilterChip(selected = !weekMode, onClick = { onChange(false) }, label = { Text("Hoy") })
-        FilterChip(selected = weekMode, onClick = { onChange(true) }, label = { Text("7 días") })
+        FilterChip(selected = !weekMode, onClick = { onChange(false) }, label = { Text(tr("Hoy", "Today", "Oggi")) })
+        FilterChip(selected = weekMode, onClick = { onChange(true) }, label = { Text(tr("7 días", "7 days", "7 giorni")) })
     }
 }
 
@@ -229,7 +246,7 @@ private fun AppRow(app: AppUsage, color: Color) {
         Column(Modifier.weight(1f)) {
             Text(app.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                "Abierta ${app.opens} ${if (app.opens == 1) "vez" else "veces"}",
+                tr("Abierta ", "Opened ", "Aperta ") + "${app.opens} " + if (app.opens == 1) tr("vez", "time", "volta") else tr("veces", "times", "volte"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -238,85 +255,95 @@ private fun AppRow(app: AppUsage, color: Color) {
     }
 }
 
-data class Insight(val value: String, val label: String)
-
-/** Los datos más llamativos del perfil, como tarjetas con un número grande. */
-fun insights(r: ProfileReport): List<Insight> {
-    val out = mutableListOf<Insight>()
-    if (r.videosWeek > 0) {
-        out += Insight("≈ ${num(r.videosWeek)}", "vídeos esta semana")
-        val meters = r.videosWeek * Analytics.CM_PER_SWIPE / 100.0
-        out += Insight("${num(meters.toLong())} m", "deslizados con el pulgar: ${distancePhrase(meters)}")
+@Composable
+private fun ScrollCard(r: ProfileReport, weekMode: Boolean) {
+    val videos = if (weekMode) r.videosWeek else r.videosToday
+    if (videos <= 0) return
+    val meters = videos * Analytics.CM_PER_SWIPE / 100.0
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(if (weekMode) tr("Estos 7 días", "These 7 days", "Questi 7 giorni") else tr("Hoy", "Today", "Oggi"), style = MaterialTheme.typography.labelLarge, color = AlbaColors.Alba)
+            Text("≈ ${num(videos)} " + tr("vídeos", "videos", "video"), fontSize = 40.sp, fontFamily = FontFamily.Serif)
+            Text(
+                tr(
+                    "Has deslizado unos ${num(meters.toLong())} metros con el pulgar: ${distancePhrase(meters)}.",
+                    "You've swiped about ${num(meters.toLong())} meters with your thumb: ${distancePhrase(meters)}.",
+                    "Hai scorso circa ${num(meters.toLong())} metri con il pollice: ${distancePhrase(meters)}.",
+                ),
+                style = MaterialTheme.typography.bodyLarge,
+            )
+        }
     }
+}
+
+@Composable
+private fun HabitsCard(r: ProfileReport) {
+    val lines = mutableListOf<String>()
+
     r.todayApps.maxByOrNull { it.opens }?.takeIf { it.opens >= 3 }?.let { app ->
         val since = r.firstSessionTodayStart
         val every = if (since != null) (System.currentTimeMillis() - since) / 60_000L / app.opens else 0L
-        out += Insight(
-            "${app.opens} veces",
-            "has abierto ${app.label} hoy" + if (every > 0) ": una cada $every min" else "",
-        )
+        lines += tr(
+            "Hoy has abierto ${app.label} ${app.opens} veces",
+            "Today you've opened ${app.label} ${app.opens} times",
+            "Oggi hai aperto ${app.label} ${app.opens} volte",
+        ) + if (every > 0) tr(": una cada $every minutos.", ": once every $every minutes.", ": una ogni $every minuti.") else "."
     }
     r.lastScreenLastNight?.let {
-        out += Insight(hhmm(it.end), "tu última pantalla anoche (${r.labels[it.pkg] ?: it.pkg})")
-    }
-    if (r.nightScrollWeekMs >= 5 * 60_000L) {
-        out += Insight(formatDuration(r.nightScrollWeekMs), "de scroll entre las 00:00 y las 6:00. Tiempo robado al sueño")
-    }
-    r.longest?.let {
-        out += Insight(formatDuration(it.length), "seguidos en ${r.labels[it.pkg] ?: it.pkg} el ${dayName(it.start)}: tu sesión más larga")
+        val app = r.labels[it.pkg] ?: it.pkg
+        lines += tr(
+            "Anoche tu última pantalla fue a las ${hhmm(it.end)} ($app).",
+            "Last night your last screen was at ${hhmm(it.end)} ($app).",
+            "Ieri sera il tuo ultimo schermo è stato alle ${hhmm(it.end)} ($app).",
+        )
     }
     r.firstScreenToday?.let {
-        out += Insight(hhmm(it.start), "lo primero que abriste hoy: ${r.labels[it.pkg] ?: it.pkg}")
+        val app = r.labels[it.pkg] ?: it.pkg
+        lines += tr(
+            "Hoy lo primero que abriste fue $app, a las ${hhmm(it.start)}.",
+            "Today the first thing you opened was $app, at ${hhmm(it.start)}.",
+            "Oggi la prima cosa che hai aperto è stata $app, alle ${hhmm(it.start)}.",
+        )
+    }
+    if (r.nightScrollWeekMs >= 5 * 60_000L) {
+        val t = formatDuration(r.nightScrollWeekMs)
+        lines += tr(
+            "Esta semana, $t de scroll entre las 00:00 y las 6:00. Tiempo robado al sueño.",
+            "This week, $t of scrolling between midnight and 6:00. Time stolen from sleep.",
+            "Questa settimana, $t di scroll tra mezzanotte e le 6:00. Tempo rubato al sonno.",
+        )
+    }
+    r.longest?.let {
+        val app = r.labels[it.pkg] ?: it.pkg
+        val t = formatDuration(it.length)
+        lines += tr(
+            "Tu sesión más larga: $t seguidos en $app, el ${dayName(it.start)}.",
+            "Your longest session: $t straight on $app, on ${dayName(it.start)}.",
+            "La tua sessione più lunga: $t di fila su $app, ${dayName(it.start)}.",
+        )
     }
     if (r.scrollWeekMs > 0) {
         val daysPerYear = r.scrollWeekMs * 52 / 86_400_000.0
         if (daysPerYear >= 1) {
-            out += Insight(
-                "${String.format(ES, "%.0f", daysPerYear)} días",
-                "enteros al año en apps de scroll, a este ritmo",
+            val d = String.format(ES, "%.0f", daysPerYear)
+            lines += tr(
+                "A este ritmo, este año pasarás $d días enteros, día y noche, en apps de scroll.",
+                "At this pace, this year you'll spend $d whole days, day and night, in scrolling apps.",
+                "A questo ritmo, quest'anno passerai $d giorni interi, giorno e notte, nelle app di scroll.",
             )
         }
     }
-    return out
-}
+    if (lines.isEmpty()) return
 
-private val TILE_COLORS = listOf(
-    AlbaColors.Alba to AlbaColors.Noche,
-    AlbaColors.Bruma to AlbaColors.Arena,
-    AlbaColors.Sol to AlbaColors.Noche,
-    AlbaColors.Salvia to AlbaColors.Noche,
-)
-
-@Composable
-private fun InsightGrid(items: List<Insight>) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        items.chunked(2).forEachIndexed { row, pair ->
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .height(IntrinsicSize.Min),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                pair.forEachIndexed { col, item ->
-                    val (bg, fg) = TILE_COLORS[(row * 2 + col + row) % TILE_COLORS.size]
-                    InsightTile(item, bg, fg, Modifier.weight(1f).fillMaxHeight())
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(tr("Tus costumbres", "Your habits", "Le tue abitudini"), style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
+            lines.forEach { line ->
+                Row {
+                    Text("·  ", color = AlbaColors.Alba, style = MaterialTheme.typography.bodyLarge)
+                    Text(line, style = MaterialTheme.typography.bodyLarge)
                 }
-                if (pair.size == 1) Spacer(Modifier.weight(1f))
             }
-        }
-    }
-}
-
-@Composable
-private fun InsightTile(item: Insight, bg: Color, fg: Color, modifier: Modifier) {
-    Card(
-        modifier,
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = bg, contentColor = fg),
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(item.value, fontSize = 30.sp, lineHeight = 34.sp, fontFamily = FontFamily.Serif)
-            Text(item.label, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
@@ -324,22 +351,22 @@ private fun InsightTile(item: Insight, bg: Color, fg: Color, modifier: Modifier)
 @Composable
 private fun EquivalentsCard(r: ProfileReport) {
     val items = equivalentsFor(r.scrollWeekMs)
-    Card(
-        Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = AlbaColors.Noche, contentColor = AlbaColors.Arena),
-    ) {
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (items.isEmpty()) {
                 Text(
-                    "Menos de una hora de scroll esta semana.",
+                    tr("Menos de una hora de scroll esta semana.", "Less than an hour of scrolling this week.", "Meno di un'ora di scroll questa settimana."),
                     style = MaterialTheme.typography.titleLarge,
                     fontFamily = FontFamily.Serif,
                 )
-                Text("Eso es mirar arriba.", style = MaterialTheme.typography.bodyLarge)
+                Text(tr("Eso es mirar arriba.", "That's looking up.", "Questo è guardare in alto."), style = MaterialTheme.typography.bodyLarge)
             } else {
                 Text(
-                    "Con las ${formatDuration(r.scrollWeekMs)} de esta semana podrías haber…",
+                    tr(
+                        "En las ${formatDuration(r.scrollWeekMs)} de esta semana te daba tiempo a…",
+                        "The ${formatDuration(r.scrollWeekMs)} of this week were enough to…",
+                        "Con le ${formatDuration(r.scrollWeekMs)} di questa settimana avresti potuto…",
+                    ),
                     style = MaterialTheme.typography.titleLarge,
                     fontFamily = FontFamily.Serif,
                 )
@@ -347,7 +374,7 @@ private fun EquivalentsCard(r: ProfileReport) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Canvas(Modifier.size(10.dp)) { drawCircle(AlbaColors.Sol) }
                         Spacer(Modifier.width(10.dp))
-                        Text(item, style = MaterialTheme.typography.titleMedium)
+                        Text(item, style = MaterialTheme.typography.bodyLarge)
                     }
                 }
             }

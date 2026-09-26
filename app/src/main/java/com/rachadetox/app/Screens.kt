@@ -96,6 +96,14 @@ private val Muted = AlbaColors.Bruma
 @Composable
 fun RachaApp(resumeTick: Int) {
     val context = LocalContext.current
+    var langChosen by remember { mutableStateOf(Lang.hasChosen) }
+    if (!langChosen) {
+        LanguagePicker { lang ->
+            Lang.set(context, lang)
+            langChosen = true
+        }
+        return
+    }
     var showQuote by rememberSaveable { mutableStateOf(true) }
     if (showQuote) {
         QuoteSplash(onDone = { showQuote = false })
@@ -129,9 +137,14 @@ fun PermissionScreen() {
             )
             Spacer(Modifier.height(16.dp))
             Text(
-                "Para saber cuánto tiempo pasas en cada app necesito el permiso " +
-                    "«Acceso a datos de uso».\n\n" +
-                    "Busca Alba en la lista, actívalo y vuelve aquí.",
+                tr(
+                    "Para saber cuánto tiempo pasas en cada app necesito el permiso «Acceso a datos de uso».\n\n" +
+                        "Busca Alba en la lista, actívalo y vuelve aquí.",
+                    "To know how much time you spend in each app, I need the «Usage access» permission.\n\n" +
+                        "Find Alba in the list, turn it on and come back here.",
+                    "Per sapere quanto tempo passi in ogni app mi serve l'autorizzazione «Accesso ai dati di utilizzo».\n\n" +
+                        "Cerca Alba nell'elenco, attivala e torna qui.",
+                ),
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
             )
@@ -139,7 +152,7 @@ fun PermissionScreen() {
             Button(onClick = {
                 openSettings(context, Settings.ACTION_USAGE_ACCESS_SETTINGS)
             }) {
-                Text("Dar permiso")
+                Text(tr("Dar permiso", "Grant permission", "Concedi autorizzazione"))
             }
         }
     }
@@ -168,7 +181,7 @@ fun MainScreen(resumeTick: Int) {
     var showWhy by rememberSaveable { mutableStateOf(false) }
     var showProfile by rememberSaveable { mutableStateOf(false) }
     var showPrivacy by rememberSaveable { mutableStateOf(false) }
-    var weekTeaser by remember { mutableStateOf<Insight?>(null) }
+    var showLanguage by remember { mutableStateOf(false) }
     var refresh by remember { mutableIntStateOf(0) }
     var showBlockSetup by remember { mutableStateOf(false) }
     var pendingAction by rememberSaveable { mutableStateOf<String?>(null) }
@@ -225,17 +238,6 @@ fun MainScreen(resumeTick: Int) {
         if (goals.isNotEmpty()) MonitorService.start(context)
     }
 
-    // Un dato de tu semana para la pantalla principal
-    LaunchedEffect(resumeTick) {
-        weekTeaser = withContext(Dispatchers.Default) {
-            try {
-                insights(Analytics.build(context, goals)).firstOrNull()
-            } catch (_: Exception) {
-                null
-            }
-        }
-    }
-
     // Refresca el tiempo de hoy cada 5 segundos mientras la app está abierta
     LaunchedEffect(goals, resumeTick, refresh) {
         while (true) {
@@ -270,7 +272,7 @@ fun MainScreen(resumeTick: Int) {
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
             ) {
-                Text("＋  Añadir app")
+                Text(tr("＋  Añadir app", "＋  Add app", "＋  Aggiungi app"))
             }
         }
     ) { padding ->
@@ -292,12 +294,12 @@ fun MainScreen(resumeTick: Int) {
                             fontFamily = FontFamily.Serif,
                         )
                         Text(
-                            "Mira arriba.",
+                            tr("Mira arriba.", "Look up.", "Guarda in alto."),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.secondary,
                         )
                     }
-                    OutlinedButton(onClick = { showProfile = true }) { Text("Tu perfil") }
+                    OutlinedButton(onClick = { showProfile = true }) { Text(tr("Tu perfil", "Your profile", "Il tuo profilo")) }
                 }
             }
             item { StreakCard(info, hasGoals = goals.isNotEmpty()) }
@@ -312,15 +314,11 @@ fun MainScreen(resumeTick: Int) {
                 item { WeekCard(currentInfo.week) }
             }
 
-            weekTeaser?.let { teaser ->
-                item { WeekTeaserCard(teaser) { showProfile = true } }
-            }
-
             item { WhyEntryCard { showWhy = true } }
 
             item {
                 Text(
-                    "Tus apps",
+                    tr("Tus apps", "Your apps", "Le tue app"),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 8.dp),
@@ -331,7 +329,11 @@ fun MainScreen(resumeTick: Int) {
                 item {
                     OutlinedCard(Modifier.fillMaxWidth()) {
                         Text(
-                            "Todavía no has elegido ninguna app.\nPulsa «Añadir app» y decide cuánto tiempo al día le quieres dar.",
+                            tr(
+                                "Todavía no has elegido ninguna app.\nPulsa «Añadir app» y decide cuánto tiempo al día le quieres dar.",
+                                "You haven't chosen any app yet.\nTap «Add app» and decide how much time a day you want to give it.",
+                                "Non hai ancora scelto nessuna app.\nTocca «Aggiungi app» e decidi quanto tempo al giorno vuoi darle.",
+                            ),
                             modifier = Modifier.padding(20.dp),
                             style = MaterialTheme.typography.bodyLarge,
                         )
@@ -357,6 +359,7 @@ fun MainScreen(resumeTick: Int) {
                 }
                 item { BatteryTip() }
             }
+            item { LanguageEntry { showLanguage = true } }
             item { PrivacyEntryCard { showPrivacy = true } }
         }
     }
@@ -369,6 +372,16 @@ fun MainScreen(resumeTick: Int) {
                 showPicker = false
                 editingIsNew = true
                 editing = Goal(app.pkg, app.label, 30)
+            },
+        )
+    }
+
+    if (showLanguage) {
+        LanguageDialog(
+            onDismiss = { showLanguage = false },
+            onPick = { lang ->
+                Lang.set(context, lang)
+                showLanguage = false
             },
         )
     }
@@ -410,11 +423,11 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
     val content = if (bright) AlbaColors.Noche else MaterialTheme.colorScheme.onSurface
 
     val message = when {
-        !hasGoals -> "Elige una app y cuánto tiempo al día quieres darle."
+        !hasGoals -> tr("Elige una app y cuánto tiempo al día quieres darle.", "Choose an app and how much time a day you want to give it.", "Scegli un'app e quanto tempo al giorno vuoi darle.")
         info == null -> "…"
-        cloudy -> "Hoy se ha nublado. Mañana vuelve a salir el sol."
-        info.todaySaved -> "Día salvado. Medio sol, pero sol."
-        else -> "Aguanta hasta medianoche y mañana serán ${current + 1}."
+        cloudy -> tr("Hoy se ha nublado. Mañana vuelve a salir el sol.", "Clouds rolled in today. Tomorrow the sun rises again.", "Oggi si è rannuvolato. Domani torna il sole.")
+        info.todaySaved -> tr("Día salvado. Medio sol, pero sol.", "Day saved. Half a sun, but still a sun.", "Giornata salvata. Mezzo sole, ma pur sempre sole.")
+        else -> tr("Aguanta hasta medianoche y mañana serán ${current + 1}.", "Hold on until midnight and tomorrow it will be ${current + 1}.", "Resisti fino a mezzanotte e domani saranno ${current + 1}.")
     }
 
     Card(
@@ -437,7 +450,7 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
             )
             Text("$current", fontSize = 64.sp, lineHeight = 68.sp, fontFamily = FontFamily.Serif)
             Text(
-                if (current == 1) "día seguido" else "días seguidos",
+                if (current == 1) tr("día seguido", "day in a row", "giorno di fila") else tr("días seguidos", "days in a row", "giorni di fila"),
                 style = MaterialTheme.typography.titleMedium,
             )
             Spacer(Modifier.height(10.dp))
@@ -445,7 +458,7 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
             if (info != null && info.best > 0) {
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "Tu mejor racha: ${info.best} ${dias(info.best)}",
+                    tr("Tu mejor racha: ", "Your best streak: ", "La tua serie migliore: ") + "${info.best} ${dias(info.best)}",
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.alpha(0.8f),
                 )
@@ -456,10 +469,10 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
 
 @Composable
 fun WeekCard(week: List<DayStatus>) {
-    val locale = Locale.forLanguageTag("es-ES")
+    val locale = Lang.locale
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
-            Text("Tu semana", style = MaterialTheme.typography.labelLarge)
+            Text(tr("Tu semana", "Your week", "La tua settimana"), style = MaterialTheme.typography.labelLarge)
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 week.forEach { day ->
@@ -526,10 +539,10 @@ fun GoalCard(goal: Goal, used: Long, blocked: Boolean = false, onClick: () -> Un
         else -> Green
     }
     val status = when {
-        blocked -> "Cerrada hasta mañana"
-        over -> "Hoy te has pasado ${formatDuration(used - goal.limitMillis)}"
-        goal.limitMillis - used < 60_000L -> "Te queda menos de 1 min"
-        else -> "Te quedan ${formatDuration(goal.limitMillis - used)}"
+        blocked -> tr("Cerrada hasta mañana", "Closed until tomorrow", "Chiusa fino a domani")
+        over -> tr("Hoy te has pasado ", "Over by ", "Oggi hai sforato di ") + formatDuration(used - goal.limitMillis)
+        goal.limitMillis - used < 60_000L -> tr("Te queda menos de 1 min", "Less than 1 min left", "Ti resta meno di 1 min")
+        else -> tr("Te quedan ", "Left: ", "Ti restano ") + formatDuration(goal.limitMillis - used)
     }
 
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
@@ -574,16 +587,19 @@ fun BatteryTip() {
     val context = LocalContext.current
     OutlinedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
-            Text("🔋 Para que los avisos lleguen siempre", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(tr("🔋 Para que los avisos lleguen siempre", "🔋 So reminders always arrive", "🔋 Perché gli avvisi arrivino sempre"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(4.dp))
             Text(
-                "Algunos móviles (Xiaomi, Samsung, Huawei…) cierran las apps en segundo plano. " +
-                    "Quita la optimización de batería para Alba.",
+                tr(
+                    "Algunos móviles (Xiaomi, Samsung, Huawei…) cierran las apps en segundo plano. Quita la optimización de batería para Alba.",
+                    "Some phones (Xiaomi, Samsung, Huawei…) close apps in the background. Turn off battery optimization for Alba.",
+                    "Alcuni telefoni (Xiaomi, Samsung, Huawei…) chiudono le app in background. Disattiva l'ottimizzazione della batteria per Alba.",
+                ),
                 style = MaterialTheme.typography.bodySmall,
             )
             TextButton(onClick = {
                 openSettings(context, Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-            }) { Text("Abrir ajustes de batería") }
+            }) { Text(tr("Abrir ajustes de batería", "Open battery settings", "Apri impostazioni batteria")) }
         }
     }
 }
@@ -670,12 +686,12 @@ fun AppPickerDialog(exclude: Set<String>, onDismiss: () -> Unit, onPick: (AppEnt
                 .fillMaxHeight(0.85f),
         ) {
             Column(Modifier.padding(20.dp)) {
-                Text("¿Qué te quita más de lo que te da?", style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
+                Text(tr("¿Qué te quita más de lo que te da?", "What takes more from you than it gives?", "Cosa ti toglie più di quanto ti dà?"), style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    placeholder = { Text("Buscar…") },
+                    placeholder = { Text(tr("Buscar…", "Search…", "Cerca…")) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -711,7 +727,7 @@ fun AppPickerDialog(exclude: Set<String>, onDismiss: () -> Unit, onPick: (AppEnt
                     }
                 }
                 TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
-                    Text("Cancelar")
+                    Text(tr("Cancelar", "Cancel", "Annulla"))
                 }
             }
         }
@@ -737,7 +753,7 @@ fun LimitDialog(
         title = { Text(goal.label) },
         text = {
             Column {
-                Text("¿Cuánto tiempo al día le das?")
+                Text(tr("¿Cuánto tiempo al día le das?", "How much time a day do you give it?", "Quanto tempo al giorno le dai?"))
                 Text(
                     formatMinutes(minutes.roundToInt()),
                     style = MaterialTheme.typography.headlineMedium,
@@ -751,24 +767,24 @@ fun LimitDialog(
                     steps = 34, // saltos de 5 minutos
                 )
                 Text(
-                    "Te avisaré cuando te quede poco.",
+                    tr("Te avisaré cuando te quede poco.", "I'll let you know when you're running low.", "Ti avviserò quando te ne resterà poco."),
                     style = MaterialTheme.typography.bodySmall,
                 )
                 if (!isNew) {
                     Spacer(Modifier.height(8.dp))
                     TextButton(onClick = onDelete) {
-                        Text("Dejar de contar esta app", color = MaterialTheme.colorScheme.error)
+                        Text(tr("Dejar de contar esta app", "Stop tracking this app", "Smetti di contare questa app"), color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = { onSave(minutes.roundToInt()) }) {
-                Text(if (isNew) "Empezar" else "Guardar")
+                Text(if (isNew) tr("Empezar", "Start", "Inizia") else tr("Guardar", "Save", "Salva"))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar") }
+            TextButton(onClick = onDismiss) { Text(tr("Cancelar", "Cancel", "Annulla")) }
         },
     )
 }
@@ -781,9 +797,9 @@ fun WhyEntryCard(onClick: () -> Unit) {
             BrainArt(Modifier.size(56.dp), state = BrainState.Overloaded)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text("¿Por qué me aburro?", style = MaterialTheme.typography.titleMedium, fontFamily = FontFamily.Serif)
+                Text(tr("¿Por qué me aburro?", "Why am I bored?", "Perché mi annoio?"), style = MaterialTheme.typography.titleMedium, fontFamily = FontFamily.Serif)
                 Text(
-                    "Lo que pasa en tu cabeza cuando haces scroll",
+                    tr("Lo que pasa en tu cabeza cuando haces scroll", "What happens in your head when you scroll", "Cosa succede nella tua testa quando scorri"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -795,22 +811,26 @@ fun WhyEntryCard(onClick: () -> Unit) {
 
 @Composable
 fun SaveStreakCard(apps: List<Goal>, onSave: () -> Unit) {
-    val names = apps.joinToString(" y ") { it.label }
+    val names = apps.joinToString(tr(" y ", " and ", " e ")) { it.label }
     Card(
         Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = AlbaColors.Bruma, contentColor = AlbaColors.Arena),
     ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("¿Salvar tu racha?", style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
+            Text(tr("¿Salvar tu racha?", "Save your streak?", "Salvare la tua serie?"), style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
             Text(
-                "Cierra $names lo que queda de día y hoy seguirá contando. Será un día a medias: medio sol.",
+                tr(
+                    "Cierra $names lo que queda de día y hoy seguirá contando. Será un día a medias: medio sol.",
+                    "Close $names for the rest of the day and today will still count. A half day: half a sun.",
+                    "Chiudi $names per il resto della giornata e oggi conterà lo stesso. Una giornata a metà: mezzo sole.",
+                ),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Button(
                 onClick = onSave,
                 colors = ButtonDefaults.buttonColors(containerColor = AlbaColors.Sol, contentColor = AlbaColors.Noche),
-            ) { Text("Cerrar $names hasta mañana") }
+            ) { Text(tr("Cerrar $names hasta mañana", "Close $names until tomorrow", "Chiudi $names fino a domani")) }
         }
     }
 }
@@ -820,11 +840,19 @@ fun AutoBlockCard(active: Boolean, turningOff: Boolean, onToggle: (Boolean) -> U
     OutlinedCard(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Que Alba cierre la puerta", style = MaterialTheme.typography.titleMedium, fontFamily = FontFamily.Serif)
+                Text(tr("Que Alba cierre la puerta", "Let Alba close the door", "Lascia che Alba chiuda la porta"), style = MaterialTheme.typography.titleMedium, fontFamily = FontFamily.Serif)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    if (turningOff) "Se apagará mañana. Hasta entonces, sigue de tu lado."
-                    else "Cuando llegues a tu límite, la app se queda cerrada hasta mañana. Así no tienes que pelearte tú.",
+                    if (turningOff) tr(
+                        "Se apagará mañana. Hasta entonces, sigue de tu lado.",
+                        "It will turn off tomorrow. Until then, it's still on your side.",
+                        "Si spegnerà domani. Fino ad allora, resta dalla tua parte.",
+                    )
+                    else tr(
+                        "Cuando llegues a tu límite, la app se queda cerrada hasta mañana. Así no tienes que pelearte tú.",
+                        "When you reach your limit, the app stays closed until tomorrow. That way you don't have to fight it yourself.",
+                        "Quando raggiungi il limite, l'app resta chiusa fino a domani. Così non devi combattere tu.",
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -840,12 +868,30 @@ fun BlockSetupDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Un permiso más", fontFamily = FontFamily.Serif) },
+        title = { Text(tr("Un permiso más", "One more permission", "Un'altra autorizzazione"), fontFamily = FontFamily.Serif) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Para cerrar apps, Alba usa el permiso de Accesibilidad. Solo ve qué app se abre, no lo que hay en tu pantalla.")
-                Text("1. Pulsa «Abrir Accesibilidad», busca Alba (a veces dentro de «Apps instaladas» o «Servicios») y actívalo.")
-                Text("2. Si el interruptor sale gris: pulsa «Ajustes de Alba», toca los tres puntos de arriba a la derecha, elige «Permitir ajustes restringidos» y repite el paso 1.")
+                Text(
+                    tr(
+                        "Para cerrar apps, Alba usa el permiso de Accesibilidad. Solo ve qué app se abre, no lo que hay en tu pantalla.",
+                        "To close apps, Alba uses the Accessibility permission. It only sees which app opens, not what is on your screen.",
+                        "Per chiudere le app, Alba usa l'autorizzazione Accessibilità. Vede solo quale app si apre, non cosa c'è sullo schermo.",
+                    )
+                )
+                Text(
+                    tr(
+                        "1. Pulsa «Abrir Accesibilidad», busca Alba (a veces dentro de «Apps instaladas» o «Servicios») y actívalo.",
+                        "1. Tap «Open Accessibility», find Alba (sometimes under «Installed apps» or «Services») and turn it on.",
+                        "1. Tocca «Apri Accessibilità», cerca Alba (a volte in «App scaricate» o «Servizi») e attivala.",
+                    )
+                )
+                Text(
+                    tr(
+                        "2. Si el interruptor sale gris: pulsa «Ajustes de Alba», toca los tres puntos de arriba a la derecha, elige «Permitir ajustes restringidos» y repite el paso 1.",
+                        "2. If the switch is greyed out: tap «Alba settings», tap the three dots at the top right, choose «Allow restricted settings» and repeat step 1.",
+                        "2. Se l'interruttore è grigio: tocca «Impostazioni di Alba», tocca i tre puntini in alto a destra, scegli «Consenti impostazioni con restrizioni» e ripeti il passo 1.",
+                    )
+                )
                 TextButton(onClick = {
                     try {
                         context.startActivity(
@@ -854,35 +900,14 @@ fun BlockSetupDialog(onDismiss: () -> Unit) {
                         )
                     } catch (_: Exception) {
                     }
-                }) { Text("Ajustes de Alba") }
+                }) { Text(tr("Ajustes de Alba", "Alba settings", "Impostazioni di Alba")) }
             }
         },
         confirmButton = {
             TextButton(onClick = { openSettings(context, Settings.ACTION_ACCESSIBILITY_SETTINGS) }) {
-                Text("Abrir Accesibilidad")
+                Text(tr("Abrir Accesibilidad", "Open Accessibility", "Apri Accessibilità"))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Ahora no") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Ahora no", "Not now", "Non ora")) } },
     )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun WeekTeaserCard(insight: Insight, onClick: () -> Unit) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = AlbaColors.Alba, contentColor = AlbaColors.Noche),
-    ) {
-        Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(insight.value, fontSize = 34.sp, lineHeight = 38.sp, fontFamily = FontFamily.Serif)
-                Text(insight.label, style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(6.dp))
-                Text("Ver tu semana", style = MaterialTheme.typography.labelLarge)
-            }
-            Text("→", style = MaterialTheme.typography.headlineSmall)
-        }
-    }
 }

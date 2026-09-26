@@ -64,16 +64,6 @@ import kotlin.math.sin
 fun WhyScreen(onBack: () -> Unit) {
     BackHandler { onBack() }
     val context = LocalContext.current
-    var dailyAvg by remember { mutableStateOf<Long?>(null) }
-    LaunchedEffect(Unit) {
-        dailyAvg = withContext(Dispatchers.Default) {
-            try {
-                Analytics.build(context, Store(context).goals()).scrollWeekMs / 7
-            } catch (_: Exception) {
-                null
-            }
-        }
-    }
 
     Surface(Modifier.fillMaxSize()) {
         Column(
@@ -84,21 +74,25 @@ fun WhyScreen(onBack: () -> Unit) {
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            TextButton(onClick = onBack) { Text("← Volver") }
+            TextButton(onClick = onBack) { Text(tr("← Volver", "← Back", "← Indietro")) }
 
             // 1. Portada
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 BrainArt(Modifier.size(170.dp), state = BrainState.Overloaded)
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "¿Por qué me aburro?",
+                    tr("¿Por qué me aburro?", "Why am I bored?", "Perché mi annoio?"),
                     style = MaterialTheme.typography.headlineMedium,
                     fontFamily = FontFamily.Serif,
                     textAlign = TextAlign.Center,
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "Lo que pasa en tu cabeza cada vez que deslizas el dedo.",
+                    tr(
+                        "Lo que pasa en tu cabeza cada vez que deslizas el dedo.",
+                        "What happens in your head every time you swipe.",
+                        "Cosa succede nella tua testa ogni volta che scorri con il dito.",
+                    ),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -108,33 +102,60 @@ fun WhyScreen(onBack: () -> Unit) {
             // 2. Tragaperras
             InfoCard(
                 step = "1",
-                title = "Llevas una tragaperras en el bolsillo",
-                body = "Cada vez que deslizas, tu cerebro no sabe qué va a salir: algo increíble o nada. " +
-                    "Esa incertidumbre es el mismo mecanismo que usan las máquinas tragaperras: " +
-                    "la recompensa variable. Es lo que más engancha, y no es casualidad. Está diseñado así.",
+                title = tr("Llevas una tragaperras en el bolsillo", "There's a slot machine in your pocket", "Hai una slot machine in tasca"),
+                body = tr(
+                    "Cada vez que deslizas, tu cerebro no sabe qué va a salir: algo increíble o nada. " +
+                        "Esa incertidumbre es el mismo mecanismo que usan las máquinas tragaperras: " +
+                        "la recompensa variable. Es lo que más engancha, y no es casualidad. Está diseñado así.",
+                    "Every time you swipe, your brain doesn't know what's coming: something amazing or nothing. " +
+                        "That uncertainty is the same mechanism slot machines use: " +
+                        "variable reward. It's what hooks you the most, and it's no accident. It's designed that way.",
+                    "Ogni volta che scorri, il tuo cervello non sa cosa uscirà: qualcosa di incredibile o niente. " +
+                        "Questa incertezza è lo stesso meccanismo delle slot machine: " +
+                        "la ricompensa variabile. È ciò che crea più dipendenza, e non è un caso. È progettato così.",
+                ),
             ) { SlotMachineArt(Modifier.fillMaxWidth().aspectRatio(1.6f)) }
 
             // 3. Picos de dopamina
             InfoCard(
                 step = "2",
-                title = "Pico, caída, otra vez",
-                body = "La dopamina no es placer: es las ganas de más. Cada vídeo es un pequeño pico, " +
-                    "y después de cada pico hay una caída que te deja por debajo de donde estabas. " +
-                    "Por eso nunca es solo un vídeo.",
+                title = tr("Pico, caída, otra vez", "Spike, drop, again", "Picco, caduta, di nuovo"),
+                body = tr(
+                    "La dopamina no es placer: es las ganas de más. Cada vídeo es un pequeño pico, " +
+                        "y después de cada pico hay una caída que te deja por debajo de donde estabas. " +
+                        "Por eso nunca es solo un vídeo.",
+                    "Dopamine isn't pleasure: it's the craving for more. Every video is a small spike, " +
+                        "and after every spike comes a drop that leaves you below where you started. " +
+                        "That's why it's never just one video.",
+                    "La dopamina non è piacere: è la voglia di averne ancora. Ogni video è un piccolo picco, " +
+                        "e dopo ogni picco arriva una caduta che ti lascia più in basso di prima. " +
+                        "Per questo non è mai un solo video.",
+                ),
             ) {
                 DopamineChart(Modifier.fillMaxWidth().aspectRatio(1.7f))
                 Legend(
-                    listOf(AlbaColors.Alba to "Scroll", AlbaColors.Salvia to "Un paseo, un libro, una charla")
+                    listOf(
+                        AlbaColors.Alba to "Scroll",
+                        AlbaColors.Salvia to tr("Un paseo, un libro, una charla", "A walk, a book, a chat", "Una passeggiata, un libro, una chiacchierata"),
+                    )
                 )
             }
 
             // 4. El listón
             InfoCard(
                 step = "3",
-                title = "Te han subido el listón",
-                body = "Tu cerebro se adapta a lo que le das. Después de cientos de estímulos al día, " +
-                    "lo normal ya no llega al listón: un libro, una conversación, un paseo. " +
-                    "No es que el mundo sea aburrido. Es que te han subido el listón.",
+                title = tr("Te han subido el listón", "They've raised your bar", "Ti hanno alzato l'asticella"),
+                body = tr(
+                    "Tu cerebro se adapta a lo que le das. Después de cientos de estímulos al día, " +
+                        "lo normal ya no llega al listón: un libro, una conversación, un paseo. " +
+                        "No es que el mundo sea aburrido. Es que te han subido el listón.",
+                    "Your brain adapts to what you feed it. After hundreds of hits a day, " +
+                        "ordinary things no longer clear the bar: a book, a conversation, a walk. " +
+                        "It's not that the world is boring. It's that they've raised your bar.",
+                    "Il tuo cervello si adatta a ciò che gli dai. Dopo centinaia di stimoli al giorno, " +
+                        "le cose normali non superano più l'asticella: un libro, una conversazione, una passeggiata. " +
+                        "Non è che il mondo sia noioso. È che ti hanno alzato l'asticella.",
+                ),
             ) {
                 Row(
                     Modifier.fillMaxWidth(),
@@ -143,11 +164,11 @@ fun WhyScreen(onBack: () -> Unit) {
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         BrainArt(Modifier.size(96.dp), state = BrainState.Calm)
-                        Text("Descansado", style = MaterialTheme.typography.labelMedium)
+                        Text(tr("Descansado", "Rested", "Riposato"), style = MaterialTheme.typography.labelMedium)
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         BrainArt(Modifier.size(96.dp), state = BrainState.Overloaded)
-                        Text("Saturado", style = MaterialTheme.typography.labelMedium)
+                        Text(tr("Saturado", "Overloaded", "Sovraccarico"), style = MaterialTheme.typography.labelMedium)
                     }
                 }
                 Spacer(Modifier.height(8.dp))
@@ -157,24 +178,40 @@ fun WhyScreen(onBack: () -> Unit) {
             // 5. El dato
             InfoCard(
                 step = "4",
-                title = "Las horas pesan",
-                body = "En un estudio con más de 6.500 adolescentes de EE. UU., quienes pasaban muchas horas " +
-                    "al día en redes tenían más riesgo de problemas como ansiedad o depresión que quienes no las usaban. " +
-                    "Y el riesgo subía con las horas.",
+                title = tr("Las horas pesan", "Hours add up", "Le ore pesano"),
+                body = tr(
+                    "En un estudio con más de 6.500 adolescentes de EE. UU., quienes pasaban muchas horas " +
+                        "al día en redes tenían más riesgo de problemas como ansiedad o depresión que quienes no las usaban. " +
+                        "Y el riesgo subía con las horas.",
+                    "In a study of more than 6,500 US teenagers, those who spent many hours a day on social media " +
+                        "had a higher risk of problems like anxiety or depression than those who didn't use it. " +
+                        "And the risk went up with the hours.",
+                    "In uno studio su oltre 6.500 adolescenti statunitensi, chi passava molte ore al giorno sui social " +
+                        "aveva un rischio maggiore di problemi come ansia o depressione rispetto a chi non li usava. " +
+                        "E il rischio cresceva con le ore.",
+                ),
             ) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    BigStat("+60 %", "de 3 a 6 h\nal día")
-                    BigStat("+78 %", "más de 6 h\nal día")
+                    BigStat("+60 %", tr("de 3 a 6 h\nal día", "3 to 6 h\na day", "da 3 a 6 h\nal giorno"))
+                    BigStat("+78 %", tr("más de 6 h\nal día", "more than 6 h\na day", "più di 6 h\nal giorno"))
                 }
             }
 
             // 6. Recuperación
             InfoCard(
                 step = "5",
-                title = "El listón baja",
-                body = "Esto no es para siempre. En un experimento, universitarios que limitaron las redes a " +
-                    "unos 30 minutos al día se sintieron menos solos y menos deprimidos en solo tres semanas. " +
-                    "El cerebro vuelve a disfrutar de lo sencillo si le das tiempo.",
+                title = tr("El listón baja", "The bar comes down", "L'asticella si abbassa"),
+                body = tr(
+                    "Esto no es para siempre. En un experimento, universitarios que limitaron las redes a " +
+                        "unos 30 minutos al día se sintieron menos solos y menos deprimidos en solo tres semanas. " +
+                        "El cerebro vuelve a disfrutar de lo sencillo si le das tiempo.",
+                    "This isn't forever. In an experiment, college students who limited social media to " +
+                        "about 30 minutes a day felt less lonely and less depressed in just three weeks. " +
+                        "Your brain learns to enjoy simple things again if you give it time.",
+                    "Non è per sempre. In un esperimento, studenti universitari che hanno limitato i social a " +
+                        "circa 30 minuti al giorno si sono sentiti meno soli e meno depressi in sole tre settimane. " +
+                        "Il cervello torna a godersi le cose semplici se gli dai tempo.",
+                ),
             ) {
                 RecoveryChart(Modifier.fillMaxWidth().aspectRatio(1.7f))
             }
@@ -194,7 +231,11 @@ fun WhyScreen(onBack: () -> Unit) {
                     BrainArt(Modifier.size(110.dp), state = BrainState.Sunrise)
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Cada día de tu racha es un día bajando el listón.",
+                        tr(
+                            "Cada día de tu racha es un día bajando el listón.",
+                            "Every day of your streak is a day bringing the bar down.",
+                            "Ogni giorno della tua serie è un giorno in cui l'asticella si abbassa.",
+                        ),
                         style = MaterialTheme.typography.titleLarge,
                         fontFamily = FontFamily.Serif,
                         textAlign = TextAlign.Center,
@@ -203,82 +244,35 @@ fun WhyScreen(onBack: () -> Unit) {
                     Button(
                         onClick = onBack,
                         colors = ButtonDefaults.buttonColors(containerColor = AlbaColors.Noche, contentColor = AlbaColors.Arena),
-                    ) { Text("Mira arriba") }
+                    ) { Text(tr("Mira arriba", "Look up", "Guarda in alto")) }
                 }
             }
 
             // Fuentes
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Fuentes", style = MaterialTheme.typography.labelLarge)
+                Text(tr("Fuentes", "Sources", "Fonti"), style = MaterialTheme.typography.labelLarge)
                 SourceLink(
-                    "Riehm et al. (2019). JAMA Psychiatry. Tiempo en redes y problemas de salud mental en adolescentes.",
+                    "Riehm et al. (2019). JAMA Psychiatry." + tr(" Tiempo en redes y problemas de salud mental en adolescentes.", " Time on social media and mental health problems in teens.", " Tempo sui social e problemi di salute mentale negli adolescenti."),
                     "https://jamanetwork.com/journals/jamapsychiatry/fullarticle/2749480",
                 ) { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                 SourceLink(
-                    "Hunt et al. (2018). No More FOMO: limitar las redes reduce la soledad y la depresión. J. Social and Clinical Psychology.",
+                    "Hunt et al. (2018). No More FOMO: Limiting Social Media Decreases Loneliness and Depression. J. Social and Clinical Psychology.",
                     "https://guilfordjournals.com/doi/10.1521/jscp.2018.37.10.751",
                 ) { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                 Text(
-                    "Los estudios muestran asociación y efectos medios; cada persona es distinta. " +
-                        "Si te sientes mal a menudo, hablar con un profesional ayuda.",
+                    tr(
+                        "Los estudios muestran asociación y efectos medios; cada persona es distinta. " +
+                            "Si te sientes mal a menudo, hablar con un profesional ayuda.",
+                        "Studies show associations and average effects; everyone is different. " +
+                            "If you often feel down, talking to a professional helps.",
+                        "Gli studi mostrano associazioni ed effetti medi; ogni persona è diversa. " +
+                            "Se ti senti spesso giù, parlarne con un professionista aiuta.",
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            HelpCard(dailyAvg) { number ->
-                try {
-                    context.startActivity(
-                        Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    )
-                } catch (_: Exception) {
-                }
-            }
             Spacer(Modifier.height(24.dp))
-        }
-    }
-}
-
-@Composable
-private fun HelpCard(dailyAvg: Long?, call: (String) -> Unit) {
-    val heavy = dailyAvg != null && dailyAvg >= 3 * 3_600_000L
-    Card(
-        Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (heavy) AlbaColors.Bruma else MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = if (heavy) AlbaColors.Arena else MaterialTheme.colorScheme.onSurface,
-        ),
-    ) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(
-                "¿Pasas más de 3 horas al día deslizando? ¿Te cuesta parar aunque quieras?",
-                style = MaterialTheme.typography.titleLarge,
-                fontFamily = FontFamily.Serif,
-            )
-            if (heavy && dailyAvg != null) {
-                Text(
-                    "Esta semana tu media es de ${formatDuration(dailyAvg)} al día.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = AlbaColors.Sol,
-                )
-            }
-            Text("No tienes por qué hacerlo solo.", style = MaterialTheme.typography.bodyLarge)
-            HelpLine("017", "INCIBE · gratuito y confidencial") { call("017") }
-            HelpLine("900 20 20 10", "Fundación ANAR · para menores de 18 años") { call("900202010") }
-        }
-    }
-}
-
-@Composable
-private fun HelpLine(number: String, who: String, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        colors = ButtonDefaults.buttonColors(containerColor = AlbaColors.Sol, contentColor = AlbaColors.Noche),
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Llamar al $number", style = MaterialTheme.typography.titleMedium)
-            Text(who, style = MaterialTheme.typography.labelMedium)
         }
     }
 }
@@ -475,7 +469,7 @@ private fun DopamineChart(modifier: Modifier) {
             axisColor.copy(alpha = 0.6f), Offset(pad, base), Offset(w - pad, base),
             strokeWidth = 3f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 10f)),
         )
-        drawText(measurer, "tu nivel normal", Offset(pad, base + 6f), TextStyle(fontSize = 11.sp, color = axisColor))
+        drawText(measurer, tr("tu nivel normal", "your normal level", "il tuo livello normale"), Offset(pad, base + 6f), TextStyle(fontSize = 11.sp, color = axisColor))
 
         // Actividad tranquila: ola suave por encima de la base
         val calm = Path()
@@ -519,7 +513,12 @@ private fun ThresholdChart(modifier: Modifier) {
         val h = size.height
         val bottom = h * 0.82f
         val chartH = h * 0.72f
-        val items = listOf("Paseo" to 0.42f, "Libro" to 0.38f, "Charla" to 0.46f, "Scroll" to 0.95f)
+        val items = listOf(
+            tr("Paseo", "Walk", "Passeggiata") to 0.42f,
+            tr("Libro", "Book", "Libro") to 0.38f,
+            tr("Charla", "Chat", "Chiacchiere") to 0.46f,
+            "Scroll" to 0.95f,
+        )
         val oldBar = 0.3f
         val newBar = 0.7f
         val slot = w / items.size
@@ -544,12 +543,12 @@ private fun ThresholdChart(modifier: Modifier) {
             AlbaColors.Salvia, Offset(0f, oldY), Offset(w, oldY), strokeWidth = 5f,
             pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 10f)),
         )
-        drawText(measurer, "listón de antes", Offset(4f, oldY + 4f), TextStyle(fontSize = 11.sp, color = muted))
+        drawText(measurer, tr("listón de antes", "bar before", "asticella prima"), Offset(4f, oldY + 4f), TextStyle(fontSize = 11.sp, color = muted))
 
         // Listón de ahora
         val newY = bottom - chartH * newBar
         drawLine(AlbaColors.Alba, Offset(0f, newY), Offset(w, newY), strokeWidth = 6f)
-        drawText(measurer, "listón de ahora", Offset(4f, newY - 34f), TextStyle(fontSize = 11.sp, color = AlbaColors.Alba))
+        drawText(measurer, tr("listón de ahora", "bar now", "asticella ora"), Offset(4f, newY - 34f), TextStyle(fontSize = 11.sp, color = AlbaColors.Alba))
     }
 }
 
@@ -578,12 +577,17 @@ private fun RecoveryChart(modifier: Modifier) {
         drawCircle(AlbaColors.Alba, 12f, Offset(left, top))
         drawCircle(AlbaColors.Sol, 16f, Offset(right, bottom))
 
-        listOf("Hoy", "Semana 1", "Semana 2", "Semana 3").forEachIndexed { i, label ->
+        listOf(
+            tr("Hoy", "Today", "Oggi"),
+            tr("Semana 1", "Week 1", "Settimana 1"),
+            tr("Semana 2", "Week 2", "Settimana 2"),
+            tr("Semana 3", "Week 3", "Settimana 3"),
+        ).forEachIndexed { i, label ->
             val x = left + i * (right - left) / 3
             val layout = measurer.measure(label, TextStyle(fontSize = 11.sp, color = muted))
             val lx = (x - layout.size.width / 2).coerceIn(0f, w - layout.size.width)
             drawText(layout, topLeft = Offset(lx, bottom + 18f))
         }
-        drawText(measurer, "listón", Offset(left + 20f, top - 8f), TextStyle(fontSize = 11.sp, color = AlbaColors.Alba))
+        drawText(measurer, tr("listón", "bar", "asticella"), Offset(left + 20f, top - 8f), TextStyle(fontSize = 11.sp, color = AlbaColors.Alba))
     }
 }
