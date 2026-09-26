@@ -40,6 +40,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -160,6 +161,7 @@ fun MainScreen(resumeTick: Int) {
     var editing by remember { mutableStateOf<Goal?>(null) }
     var editingIsNew by remember { mutableStateOf(false) }
     var showWhy by rememberSaveable { mutableStateOf(false) }
+    var showProfile by rememberSaveable { mutableStateOf(false) }
 
     // Permiso de notificaciones (Android 13+)
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -195,6 +197,10 @@ fun MainScreen(resumeTick: Int) {
         WhyScreen(onBack = { showWhy = false })
         return
     }
+    if (showProfile) {
+        ProfileScreen(goals = goals, onBack = { showProfile = false })
+        return
+    }
 
     Scaffold(
         floatingActionButton = {
@@ -217,17 +223,20 @@ fun MainScreen(resumeTick: Int) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                Column {
-                    Text(
-                        "alba",
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontFamily = FontFamily.Serif,
-                    )
-                    Text(
-                        "Mira arriba.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.secondary,
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "alba",
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontFamily = FontFamily.Serif,
+                        )
+                        Text(
+                            "Mira arriba.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.secondary,
+                        )
+                    }
+                    OutlinedButton(onClick = { showProfile = true }) { Text("Tu perfil") }
                 }
             }
             item { StreakCard(info, hasGoals = goals.isNotEmpty()) }
