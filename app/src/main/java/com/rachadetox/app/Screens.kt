@@ -167,6 +167,7 @@ fun MainScreen(resumeTick: Int) {
     var editingIsNew by remember { mutableStateOf(false) }
     var showWhy by rememberSaveable { mutableStateOf(false) }
     var showProfile by rememberSaveable { mutableStateOf(false) }
+    var showPrivacy by rememberSaveable { mutableStateOf(false) }
     var refresh by remember { mutableIntStateOf(0) }
     var showBlockSetup by remember { mutableStateOf(false) }
     var pendingAction by rememberSaveable { mutableStateOf<String?>(null) }
@@ -239,6 +240,10 @@ fun MainScreen(resumeTick: Int) {
 
     if (showWhy) {
         WhyScreen(onBack = { showWhy = false })
+        return
+    }
+    if (showPrivacy) {
+        PrivacyScreen(onBack = { showPrivacy = false })
         return
     }
     if (showProfile) {
@@ -336,6 +341,7 @@ fun MainScreen(resumeTick: Int) {
                 }
                 item { BatteryTip() }
             }
+            item { PrivacyEntryCard { showPrivacy = true } }
         }
     }
 
