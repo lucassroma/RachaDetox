@@ -53,13 +53,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -76,16 +80,20 @@ import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.math.roundToInt
 
-private val Green = Color(0xFF2E9E4F)
-private val Red = Color(0xFFD64545)
-private val Amber = Color(0xFFF2A30F)
-private val Flame = Color(0xFFFF7A1A)
+private val Green = AlbaColors.Salvia
+private val Amber = AlbaColors.Alba
+private val Muted = AlbaColors.Bruma
 
 // ---------------------------------------------------------------- raíz
 
 @Composable
 fun RachaApp(resumeTick: Int) {
     val context = LocalContext.current
+    var showQuote by rememberSaveable { mutableStateOf(true) }
+    if (showQuote) {
+        QuoteSplash(onDone = { showQuote = false })
+        return
+    }
     val hasUsage = remember(resumeTick) { UsageTracker.hasPermission(context) }
     if (hasUsage) MainScreen(resumeTick) else PermissionScreen()
 }
@@ -104,20 +112,20 @@ fun PermissionScreen() {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("🔥", fontSize = 64.sp)
-            Spacer(Modifier.height(16.dp))
+            Image(painterResource(R.drawable.ic_sun), contentDescription = null, modifier = Modifier.size(96.dp))
+            Spacer(Modifier.height(8.dp))
             Text(
-                "Bienvenido a Racha Detox",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
+                "alba",
+                style = MaterialTheme.typography.displaySmall,
+                fontFamily = FontFamily.Serif,
                 textAlign = TextAlign.Center,
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
             Text(
-                "Para saber cuánto tiempo pasas en Instagram, TikTok o la app que elijas, " +
-                    "necesito el permiso de «Acceso a datos de uso».\n\n" +
-                    "En la pantalla que se abre, busca Racha Detox y activa el interruptor. " +
-                    "Después vuelve aquí.\n\nTus datos nunca salen del móvil.",
+                "Para saber cuánto tiempo pasas en cada app necesito el permiso " +
+                    "«Acceso a datos de uso».\n\n" +
+                    "Busca Alba en la lista, actívalo y vuelve aquí.\n\n" +
+                    "Nada sale de tu móvil.",
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
             )
@@ -184,8 +192,12 @@ fun MainScreen(resumeTick: Int) {
 
     Scaffold(
         floatingActionButton = {
-            ExtendedFloatingActionButton(onClick = { showPicker = true }) {
-                Text("＋  Añadir app", fontWeight = FontWeight.SemiBold)
+            ExtendedFloatingActionButton(
+                onClick = { showPicker = true },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ) {
+                Text("＋  Añadir app")
             }
         }
     ) { padding ->
@@ -199,11 +211,18 @@ fun MainScreen(resumeTick: Int) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                Text(
-                    "Racha Detox",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                )
+                Column {
+                    Text(
+                        "alba",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontFamily = FontFamily.Serif,
+                    )
+                    Text(
+                        "Mira arriba.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
+                }
             }
             item { StreakCard(info, hasGoals = goals.isNotEmpty()) }
 
@@ -214,7 +233,7 @@ fun MainScreen(resumeTick: Int) {
 
             item {
                 Text(
-                    "Tus límites diarios",
+                    "Tus apps",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 8.dp),
@@ -225,7 +244,7 @@ fun MainScreen(resumeTick: Int) {
                 item {
                     OutlinedCard(Modifier.fillMaxWidth()) {
                         Text(
-                            "Aún no vigilas ninguna app.\nPulsa «Añadir app», elige por ejemplo Instagram o TikTok y ponle un tiempo máximo al día.",
+                            "Todavía no has elegido ninguna app.\nPulsa «Añadir app» y decide cuánto tiempo al día le quieres dar.",
                             modifier = Modifier.padding(20.dp),
                             style = MaterialTheme.typography.bodyLarge,
                         )
@@ -282,15 +301,16 @@ fun MainScreen(resumeTick: Int) {
 @Composable
 fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
     val current = info?.current ?: 0
-    val hot = hasGoals && current > 0 && info?.todayOk == true
-    val container = if (hot) Flame else MaterialTheme.colorScheme.surfaceVariant
-    val content = if (hot) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+    val cloudy = hasGoals && info?.todayOk == false
+    val bright = hasGoals && !cloudy && current > 0
+    val container = if (bright) AlbaColors.Sol else MaterialTheme.colorScheme.surfaceVariant
+    val content = if (bright) AlbaColors.Noche else MaterialTheme.colorScheme.onSurface
 
     val message = when {
-        !hasGoals -> "Elige una app y un límite diario para empezar tu racha."
-        info == null -> "Calculando…"
-        !info.todayOk -> "Hoy te has pasado de un límite. Mañana vuelves a empezar, ¡ánimo!"
-        else -> "Si aguantas hasta medianoche, mañana tendrás ${current + 1} ${dias(current + 1)}."
+        !hasGoals -> "Elige una app y cuánto tiempo al día quieres darle."
+        info == null -> "…"
+        cloudy -> "Hoy se ha nublado. Mañana vuelve a salir el sol."
+        else -> "Aguanta hasta medianoche y mañana serán ${current + 1}."
     }
 
     Card(
@@ -304,10 +324,16 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(if (info?.todayOk == false) "💔" else "🔥", fontSize = 44.sp)
-            Text("$current", fontSize = 64.sp, lineHeight = 68.sp, fontWeight = FontWeight.Black)
+            Image(
+                painterResource(R.drawable.ic_sun),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(64.dp)
+                    .alpha(if (cloudy) 0.35f else 1f),
+            )
+            Text("$current", fontSize = 64.sp, lineHeight = 68.sp, fontFamily = FontFamily.Serif)
             Text(
-                if (current == 1) "día de racha" else "días de racha",
+                if (current == 1) "día seguido" else "días seguidos",
                 style = MaterialTheme.typography.titleMedium,
             )
             Spacer(Modifier.height(10.dp))
@@ -315,9 +341,9 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
             if (info != null && info.best > 0) {
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "Mejor racha: ${info.best} ${dias(info.best)}",
+                    "Tu mejor racha: ${info.best} ${dias(info.best)}",
                     style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.alpha(0.8f),
                 )
             }
         }
@@ -329,7 +355,7 @@ fun WeekCard(week: List<DayStatus>) {
     val locale = Locale.forLanguageTag("es-ES")
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
-            Text("Últimos 7 días", style = MaterialTheme.typography.labelLarge)
+            Text("Tu semana", style = MaterialTheme.typography.labelLarge)
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 week.forEach { day ->
@@ -351,8 +377,8 @@ fun WeekCard(week: List<DayStatus>) {
 @Composable
 private fun DayDot(day: DayStatus) {
     val (bg, symbol, fg) = when (day.ok) {
-        true -> Triple(Green, "✓", Color.White)
-        false -> Triple(Red, "✕", Color.White)
+        true -> Triple(Green, "✓", AlbaColors.Noche)
+        false -> Triple(Muted, "·", AlbaColors.Arena)
         null -> Triple(
             MaterialTheme.colorScheme.surface,
             if (day.isToday) "•" else "–",
@@ -364,7 +390,7 @@ private fun DayDot(day: DayStatus) {
         .clip(CircleShape)
         .background(bg)
     if (day.isToday && day.ok == null) {
-        modifier = modifier.border(BorderStroke(2.dp, Flame), CircleShape)
+        modifier = modifier.border(BorderStroke(2.dp, AlbaColors.Alba), CircleShape)
     }
     Box(modifier, contentAlignment = Alignment.Center) {
         Text(symbol, color = fg, fontWeight = FontWeight.Bold)
@@ -377,12 +403,12 @@ fun GoalCard(goal: Goal, used: Long, onClick: () -> Unit) {
     val fraction = (used.toFloat() / goal.limitMillis).coerceIn(0f, 1f)
     val over = used > goal.limitMillis
     val barColor = when {
-        over -> Red
+        over -> Muted
         fraction >= 0.8f -> Amber
         else -> Green
     }
     val status = when {
-        over -> "Te has pasado ${formatDuration(used - goal.limitMillis)}"
+        over -> "Hoy te has pasado ${formatDuration(used - goal.limitMillis)}"
         goal.limitMillis - used < 60_000L -> "Te queda menos de 1 min"
         else -> "Te quedan ${formatDuration(goal.limitMillis - used)}"
     }
@@ -404,7 +430,7 @@ fun GoalCard(goal: Goal, used: Long, onClick: () -> Unit) {
                     Text(
                         "${formatDuration(used)} / ${formatMinutes(goal.limitMinutes)}",
                         style = MaterialTheme.typography.labelLarge,
-                        color = if (over) Red else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Spacer(Modifier.height(8.dp))
@@ -418,7 +444,7 @@ fun GoalCard(goal: Goal, used: Long, onClick: () -> Unit) {
                     trackColor = MaterialTheme.colorScheme.surface,
                 )
                 Spacer(Modifier.height(6.dp))
-                Text(status, style = MaterialTheme.typography.bodySmall, color = if (over) Red else MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -433,7 +459,7 @@ fun BatteryTip() {
             Spacer(Modifier.height(4.dp))
             Text(
                 "Algunos móviles (Xiaomi, Samsung, Huawei…) cierran las apps en segundo plano. " +
-                    "Quita la optimización de batería para Racha Detox.",
+                    "Quita la optimización de batería para Alba.",
                 style = MaterialTheme.typography.bodySmall,
             )
             TextButton(onClick = {
@@ -525,7 +551,7 @@ fun AppPickerDialog(exclude: Set<String>, onDismiss: () -> Unit, onPick: (AppEnt
                 .fillMaxHeight(0.85f),
         ) {
             Column(Modifier.padding(20.dp)) {
-                Text("¿Qué app quieres controlar?", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("¿Qué te quita más de lo que te da?", style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
                     value = query,
@@ -592,7 +618,7 @@ fun LimitDialog(
         title = { Text(goal.label) },
         text = {
             Column {
-                Text("Tiempo máximo al día")
+                Text("¿Cuánto tiempo al día le das?")
                 Text(
                     formatMinutes(minutes.roundToInt()),
                     style = MaterialTheme.typography.headlineMedium,
@@ -606,13 +632,13 @@ fun LimitDialog(
                     steps = 34, // saltos de 5 minutos
                 )
                 Text(
-                    "Te avisaré al llegar al 80 % y cuando te quede 1 minuto.",
+                    "Te avisaré cuando te quede poco.",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 if (!isNew) {
                     Spacer(Modifier.height(8.dp))
                     TextButton(onClick = onDelete) {
-                        Text("Dejar de vigilar esta app", color = MaterialTheme.colorScheme.error)
+                        Text("Dejar de contar esta app", color = MaterialTheme.colorScheme.error)
                     }
                 }
             }

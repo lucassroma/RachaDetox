@@ -31,7 +31,7 @@ class MonitorService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Notifier.createChannels(this)
-        val notification = Notifier.ongoing(this, "🔥 Racha Detox", "Vigilando tu tiempo de hoy…")
+        val notification = Notifier.ongoing(this, "Alba", "Contando tu tiempo de hoy…")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(Notifier.ONGOING_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
@@ -87,27 +87,27 @@ class MonitorService : Service() {
             when {
                 used > goal.limitMillis -> once(
                     "over", baseId + 3,
-                    "💔 Te has pasado con ${goal.label}",
-                    "Hoy ya no cuenta para la racha. Mañana empiezas de cero, ¡tú puedes!"
+                    "Hoy se ha nublado",
+                    "Te has pasado con ${goal.label}. Mañana vuelve a salir el sol."
                 )
 
                 left <= 60_000L -> once(
                     "last", baseId + 2,
-                    "⏳ Último minuto en ${goal.label}",
-                    if (info.current > 0) "Ciérrala ya para salvar tu racha de ${info.current} ${dias(info.current)} 🔥"
-                    else "Ciérrala ya para que hoy cuente en tu racha 🔥"
+                    "Un minuto más de ${goal.label}",
+                    if (info.current > 0) "¿Merece la pena? Llevas ${info.current} ${dias(info.current)} seguidos."
+                    else "¿Merece la pena?"
                 )
 
                 used >= goal.limitMillis * 8 / 10 -> once(
                     "80", baseId + 1,
-                    "⚠️ Te quedan ${formatDuration(left)} de ${goal.label}",
+                    "Te quedan ${formatDuration(left)} de ${goal.label}",
                     "Llevas ${formatDuration(used)} de ${formatMinutes(goal.limitMinutes)} hoy."
                 )
             }
         }
 
-        val title = if (info.todayOk) "🔥 Racha: ${info.current} ${dias(info.current)}"
-        else "💔 Hoy te has pasado"
+        val title = if (info.todayOk) "${info.current} ${dias(info.current)} seguidos"
+        else "Hoy se ha nublado"
         val text = goals.joinToString(" · ") {
             "${it.label} ${formatDuration(usage[it.pkg] ?: 0L)}/${formatMinutes(it.limitMinutes)}"
         }
