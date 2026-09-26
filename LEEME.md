@@ -1,6 +1,6 @@
-# Racha Detox 🔥
+# Alba — Mira arriba.
 
-App Android para crear una racha de días usando poco Instagram, TikTok o la app que elijas.
+App Android: elige cuánto tiempo al día le das a cada app y construye una racha de días.
 
 ## Cómo funciona
 - Eliges una o varias apps y un tiempo máximo al día (de 5 min a 3 h).
@@ -16,7 +16,7 @@ App Android para crear una racha de días usando poco Instagram, TikTok o la app
 3. En el móvil: Ajustes → Información del teléfono → pulsa 7 veces "Número de compilación".
    Luego Ajustes → Opciones de desarrollador → activa "Depuración USB".
 4. Conecta el móvil por USB, acepta el aviso en el móvil y pulsa ▶ Run en Android Studio.
-5. En la app: "Dar permiso" → activa Racha Detox en "Acceso a datos de uso" → vuelve.
+5. En la app: "Dar permiso" → activa Alba en "Acceso a datos de uso" → vuelve.
 
 ## Archivos
 - `UsageTracker.kt` – mide el tiempo en primer plano de cada app.
