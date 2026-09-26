@@ -168,6 +168,7 @@ fun MainScreen(resumeTick: Int) {
     var showWhy by rememberSaveable { mutableStateOf(false) }
     var showProfile by rememberSaveable { mutableStateOf(false) }
     var showPrivacy by rememberSaveable { mutableStateOf(false) }
+    var weekTeaser by remember { mutableStateOf<Insight?>(null) }
     var refresh by remember { mutableIntStateOf(0) }
     var showBlockSetup by remember { mutableStateOf(false) }
     var pendingAction by rememberSaveable { mutableStateOf<String?>(null) }
@@ -222,6 +223,17 @@ fun MainScreen(resumeTick: Int) {
     // Arranca la vigilancia en segundo plano
     LaunchedEffect(goals, resumeTick) {
         if (goals.isNotEmpty()) MonitorService.start(context)
+    }
+
+    // Un dato de tu semana para la pantalla principal
+    LaunchedEffect(resumeTick) {
+        weekTeaser = withContext(Dispatchers.Default) {
+            try {
+                insights(Analytics.build(context, goals)).firstOrNull()
+            } catch (_: Exception) {
+                null
+            }
+        }
     }
 
     // Refresca el tiempo de hoy cada 5 segundos mientras la app está abierta
@@ -298,6 +310,10 @@ fun MainScreen(resumeTick: Int) {
             val currentInfo = info
             if (goals.isNotEmpty() && currentInfo != null) {
                 item { WeekCard(currentInfo.week) }
+            }
+
+            weekTeaser?.let { teaser ->
+                item { WeekTeaserCard(teaser) { showProfile = true } }
             }
 
             item { WhyEntryCard { showWhy = true } }
@@ -848,4 +864,25 @@ fun BlockSetupDialog(onDismiss: () -> Unit) {
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Ahora no") } },
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WeekTeaserCard(insight: Insight, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = AlbaColors.Alba, contentColor = AlbaColors.Noche),
+    ) {
+        Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(insight.value, fontSize = 34.sp, lineHeight = 38.sp, fontFamily = FontFamily.Serif)
+                Text(insight.label, style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(6.dp))
+                Text("Ver tu semana", style = MaterialTheme.typography.labelLarge)
+            }
+            Text("→", style = MaterialTheme.typography.headlineSmall)
+        }
+    }
 }

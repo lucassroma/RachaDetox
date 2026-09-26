@@ -1,5 +1,7 @@
 package com.rachadetox.app
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -77,6 +79,7 @@ fun ProfileScreen(goals: List<Goal>, onBack: () -> Unit) {
     val context = LocalContext.current
     var report by remember { mutableStateOf<ProfileReport?>(null) }
     var weekMode by rememberSaveable { mutableStateOf(true) }
+    var showAllApps by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         report = withContext(Dispatchers.Default) { Analytics.build(context, goals) }
@@ -104,6 +107,16 @@ fun ProfileScreen(goals: List<Goal>, onBack: () -> Unit) {
 
             FreedomCard(r)
 
+            // Lo más impactante, arriba y bien grande
+            val tiles = insights(r)
+            if (tiles.isNotEmpty()) {
+                Text("Tu semana en números", style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
+                InsightGrid(tiles)
+            }
+            EquivalentsCard(r)
+
+            Text("Día a día", style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
+
             // Gráfico día / semana
             Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -130,15 +143,16 @@ fun ProfileScreen(goals: List<Goal>, onBack: () -> Unit) {
                     if (apps.isEmpty()) {
                         Text("Todavía no hay datos para este periodo.", style = MaterialTheme.typography.bodyMedium)
                     }
-                    apps.take(8).forEachIndexed { i, app ->
+                    apps.take(if (showAllApps) 30 else 5).forEach { app ->
                         AppRow(app, colors[app.pkg] ?: other)
+                    }
+                    if (apps.size > 5) {
+                        TextButton(onClick = { showAllApps = !showAllApps }) {
+                            Text(if (showAllApps) "Ver menos" else "Ver todas (${apps.size})")
+                        }
                     }
                 }
             }
-
-            ScrollCard(r, weekMode)
-            HabitsCard(r)
-            EquivalentsCard(r)
 
             Text(
                 "Los vídeos se estiman suponiendo 45 s por vídeo en apps como TikTok, Instagram o YouTube. " +
@@ -224,62 +238,85 @@ private fun AppRow(app: AppUsage, color: Color) {
     }
 }
 
-@Composable
-private fun ScrollCard(r: ProfileReport, weekMode: Boolean) {
-    val videos = if (weekMode) r.videosWeek else r.videosToday
-    if (videos <= 0) return
-    val meters = videos * Analytics.CM_PER_SWIPE / 100.0
-    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(if (weekMode) "Estos 7 días" else "Hoy", style = MaterialTheme.typography.labelLarge, color = AlbaColors.Alba)
-            Text("≈ ${num(videos)} vídeos", fontSize = 40.sp, fontFamily = FontFamily.Serif)
-            Text(
-                "Has deslizado unos ${num(meters.toLong())} metros con el pulgar: ${distancePhrase(meters)}.",
-                style = MaterialTheme.typography.bodyLarge,
+data class Insight(val value: String, val label: String)
+
+/** Los datos más llamativos del perfil, como tarjetas con un número grande. */
+fun insights(r: ProfileReport): List<Insight> {
+    val out = mutableListOf<Insight>()
+    if (r.videosWeek > 0) {
+        out += Insight("≈ ${num(r.videosWeek)}", "vídeos esta semana")
+        val meters = r.videosWeek * Analytics.CM_PER_SWIPE / 100.0
+        out += Insight("${num(meters.toLong())} m", "deslizados con el pulgar: ${distancePhrase(meters)}")
+    }
+    r.todayApps.maxByOrNull { it.opens }?.takeIf { it.opens >= 3 }?.let { app ->
+        val since = r.firstSessionTodayStart
+        val every = if (since != null) (System.currentTimeMillis() - since) / 60_000L / app.opens else 0L
+        out += Insight(
+            "${app.opens} veces",
+            "has abierto ${app.label} hoy" + if (every > 0) ": una cada $every min" else "",
+        )
+    }
+    r.lastScreenLastNight?.let {
+        out += Insight(hhmm(it.end), "tu última pantalla anoche (${r.labels[it.pkg] ?: it.pkg})")
+    }
+    if (r.nightScrollWeekMs >= 5 * 60_000L) {
+        out += Insight(formatDuration(r.nightScrollWeekMs), "de scroll entre las 00:00 y las 6:00. Tiempo robado al sueño")
+    }
+    r.longest?.let {
+        out += Insight(formatDuration(it.length), "seguidos en ${r.labels[it.pkg] ?: it.pkg} el ${dayName(it.start)}: tu sesión más larga")
+    }
+    r.firstScreenToday?.let {
+        out += Insight(hhmm(it.start), "lo primero que abriste hoy: ${r.labels[it.pkg] ?: it.pkg}")
+    }
+    if (r.scrollWeekMs > 0) {
+        val daysPerYear = r.scrollWeekMs * 52 / 86_400_000.0
+        if (daysPerYear >= 1) {
+            out += Insight(
+                "${String.format(ES, "%.0f", daysPerYear)} días",
+                "enteros al año en apps de scroll, a este ritmo",
             )
+        }
+    }
+    return out
+}
+
+private val TILE_COLORS = listOf(
+    AlbaColors.Alba to AlbaColors.Noche,
+    AlbaColors.Bruma to AlbaColors.Arena,
+    AlbaColors.Sol to AlbaColors.Noche,
+    AlbaColors.Salvia to AlbaColors.Noche,
+)
+
+@Composable
+private fun InsightGrid(items: List<Insight>) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        items.chunked(2).forEachIndexed { row, pair ->
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                pair.forEachIndexed { col, item ->
+                    val (bg, fg) = TILE_COLORS[(row * 2 + col + row) % TILE_COLORS.size]
+                    InsightTile(item, bg, fg, Modifier.weight(1f).fillMaxHeight())
+                }
+                if (pair.size == 1) Spacer(Modifier.weight(1f))
+            }
         }
     }
 }
 
 @Composable
-private fun HabitsCard(r: ProfileReport) {
-    val lines = mutableListOf<String>()
-
-    r.todayApps.maxByOrNull { it.opens }?.takeIf { it.opens >= 3 }?.let { app ->
-        val since = r.firstSessionTodayStart
-        val every = if (since != null) (System.currentTimeMillis() - since) / 60_000L / app.opens else 0L
-        lines += if (every > 0) "Hoy has abierto ${app.label} ${app.opens} veces: una cada $every minutos."
-        else "Hoy has abierto ${app.label} ${app.opens} veces."
-    }
-    r.lastScreenLastNight?.let {
-        lines += "Anoche tu última pantalla fue a las ${hhmm(it.end)} (${r.labels[it.pkg] ?: it.pkg})."
-    }
-    r.firstScreenToday?.let {
-        lines += "Hoy lo primero que abriste fue ${r.labels[it.pkg] ?: it.pkg}, a las ${hhmm(it.start)}."
-    }
-    if (r.nightScrollWeekMs >= 5 * 60_000L) {
-        lines += "Esta semana, ${formatDuration(r.nightScrollWeekMs)} de scroll entre las 00:00 y las 6:00. Tiempo robado al sueño."
-    }
-    r.longest?.let {
-        lines += "Tu sesión más larga: ${formatDuration(it.length)} seguidos en ${r.labels[it.pkg] ?: it.pkg}, el ${dayName(it.start)}."
-    }
-    if (r.scrollWeekMs > 0) {
-        val daysPerYear = r.scrollWeekMs * 52 / 86_400_000.0
-        if (daysPerYear >= 1) {
-            lines += "A este ritmo, este año pasarás ${String.format(ES, "%.0f", daysPerYear)} días enteros, día y noche, en apps de scroll."
-        }
-    }
-    if (lines.isEmpty()) return
-
-    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Tus costumbres", style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
-            lines.forEach { line ->
-                Row {
-                    Text("·  ", color = AlbaColors.Alba, style = MaterialTheme.typography.bodyLarge)
-                    Text(line, style = MaterialTheme.typography.bodyLarge)
-                }
-            }
+private fun InsightTile(item: Insight, bg: Color, fg: Color, modifier: Modifier) {
+    Card(
+        modifier,
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = bg, contentColor = fg),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(item.value, fontSize = 30.sp, lineHeight = 34.sp, fontFamily = FontFamily.Serif)
+            Text(item.label, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
@@ -287,7 +324,11 @@ private fun HabitsCard(r: ProfileReport) {
 @Composable
 private fun EquivalentsCard(r: ProfileReport) {
     val items = equivalentsFor(r.scrollWeekMs)
-    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
+    Card(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = AlbaColors.Noche, contentColor = AlbaColors.Arena),
+    ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (items.isEmpty()) {
                 Text(
@@ -306,7 +347,7 @@ private fun EquivalentsCard(r: ProfileReport) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Canvas(Modifier.size(10.dp)) { drawCircle(AlbaColors.Sol) }
                         Spacer(Modifier.width(10.dp))
-                        Text(item, style = MaterialTheme.typography.bodyLarge)
+                        Text(item, style = MaterialTheme.typography.titleMedium)
                     }
                 }
             }
