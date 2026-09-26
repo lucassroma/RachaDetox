@@ -159,6 +159,7 @@ fun MainScreen(resumeTick: Int) {
     var showPicker by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Goal?>(null) }
     var editingIsNew by remember { mutableStateOf(false) }
+    var showWhy by rememberSaveable { mutableStateOf(false) }
 
     // Permiso de notificaciones (Android 13+)
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -188,6 +189,11 @@ fun MainScreen(resumeTick: Int) {
             info = result.second
             delay(5_000)
         }
+    }
+
+    if (showWhy) {
+        WhyScreen(onBack = { showWhy = false })
+        return
     }
 
     Scaffold(
@@ -230,6 +236,8 @@ fun MainScreen(resumeTick: Int) {
             if (goals.isNotEmpty() && currentInfo != null) {
                 item { WeekCard(currentInfo.week) }
             }
+
+            item { WhyEntryCard { showWhy = true } }
 
             item {
                 Text(
@@ -652,4 +660,24 @@ fun LimitDialog(
             TextButton(onClick = onDismiss) { Text("Cancelar") }
         },
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WhyEntryCard(onClick: () -> Unit) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            BrainArt(Modifier.size(56.dp), state = BrainState.Overloaded)
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text("¿Por qué me aburro?", style = MaterialTheme.typography.titleMedium, fontFamily = FontFamily.Serif)
+                Text(
+                    "Lo que pasa en tu cabeza cuando haces scroll",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text("→", style = MaterialTheme.typography.titleLarge)
+        }
+    }
 }
