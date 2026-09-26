@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_bg">#FF1F1B2E</color>
+    <color name="noche">#FF1E2140</color>
+    <color name="bruma">#FF5B5478</color>
+    <color name="alba">#FFF2A48A</color>
+    <color name="sol">#FFF6C667</color>
+    <color name="salvia">#FF8DB9A0</color>
+    <color name="arena">#FFF7F1E8</color>
+    <color name="ic_bg">#FFF7F1E8</color>
 </resources>
