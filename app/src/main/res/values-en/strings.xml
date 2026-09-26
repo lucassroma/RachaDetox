@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="blocker_description">Alba only sees which app opens, to close the ones you\'ve blocked today. It doesn\'t read what\'s on your screen.</string>
+</resources>
