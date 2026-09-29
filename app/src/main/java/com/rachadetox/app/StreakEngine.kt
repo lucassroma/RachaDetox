@@ -17,6 +17,8 @@ data class StreakInfo(
     val todaySaved: Boolean = false,
     /** Apps en las que hoy te has pasado. */
     val overToday: List<Goal> = emptyList(),
+    /** Días cerrados seguidos cumpliendo hasta ayer (no cuenta hoy). */
+    val completed: Int = 0,
 )
 
 /**
@@ -89,6 +91,7 @@ object StreakEngine {
             current, maxOf(store.bestStreak(), completed), todayOk, week,
             todaySaved = todaySaved,
             overToday = goals.filter { it.isOver(usageToday[it.pkg] ?: 0L) },
+            completed = completed,
         )
     }
 }
