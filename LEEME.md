@@ -3,7 +3,7 @@
 App Android: elige cuánto tiempo al día le das a cada app y construye una racha de días.
 
 ## Cómo funciona
-- Eliges una o varias apps y un tiempo máximo al día (de 5 min a 3 h).
+- Eliges una o varias apps y un tiempo máximo al día (de 5 min a 1 h).
 - Un día cuenta para la racha si **todas** las apps se quedan dentro de su límite.
 - Los días se cierran a medianoche. Si te pasas, la racha vuelve a 0.
 - Avisos: al 80 % del límite, cuando queda 1 minuto y si te pasas.
