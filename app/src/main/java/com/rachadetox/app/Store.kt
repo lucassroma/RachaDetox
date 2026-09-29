@@ -156,7 +156,20 @@ class Store(context: Context) {
         }
     }
 
+    // ---------- Animaciones de racha (una vez al día por tipo) ----------
+
+    fun animShown(kind: String, day: LocalDate): Boolean =
+        prefs.getString("anim_$kind", null) == day.toString()
+
+    fun markAnimShown(kind: String, day: LocalDate) {
+        prefs.edit().putString("anim_$kind", day.toString()).apply()
+    }
+
     companion object {
+        /** Límite máximo que se puede poner a una app. */
+        const val MAX_LIMIT_MINUTES = 60
+        const val MIN_LIMIT_MINUTES = 5
+
         private const val KEY_BLOCKS = "blocks"
         private const val KEY_SAVED = "saved_days"
         private const val KEY_AUTO = "auto_block"
