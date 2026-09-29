@@ -185,6 +185,7 @@ fun MainScreen(resumeTick: Int) {
     var refresh by remember { mutableIntStateOf(0) }
     var showBlockSetup by remember { mutableStateOf(false) }
     var pendingAction by rememberSaveable { mutableStateOf<String?>(null) }
+    var streakAnim by remember { mutableStateOf<StreakAnim?>(null) }
     val autoState = remember(resumeTick, refresh) { store.autoBlockActive() to store.autoBlockTurningOff() }
     val blockedToday = remember(resumeTick, refresh) { store.blockedTodayPackages().toSet() }
 
@@ -252,6 +253,27 @@ fun MainScreen(resumeTick: Int) {
         }
     }
 
+    // Animación de racha: una vez al día por tipo (ganar, perder, salvar)
+    LaunchedEffect(info) {
+        val i = info ?: return@LaunchedEffect
+        if (streakAnim != null || goals.isEmpty()) return@LaunchedEffect
+        val today = LocalDate.now()
+        when {
+            i.todaySaved -> if (!store.animShown("saved", today)) {
+                store.markAnimShown("saved", today)
+                streakAnim = StreakAnim(StreakAnimKind.Saved, i.completed)
+            }
+            !i.todayOk -> if (i.completed >= 1 && !store.animShown("lost", today)) {
+                store.markAnimShown("lost", today)
+                streakAnim = StreakAnim(StreakAnimKind.Lost, i.completed)
+            }
+            i.current >= 1 -> if (!store.animShown("rise", today)) {
+                store.markAnimShown("rise", today)
+                streakAnim = StreakAnim(StreakAnimKind.Rise, i.current)
+            }
+        }
+    }
+
     if (showWhy) {
         WhyScreen(onBack = { showWhy = false })
         return
@@ -265,6 +287,7 @@ fun MainScreen(resumeTick: Int) {
         return
     }
 
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         floatingActionButton = {
             ExtendedFloatingActionButton(
@@ -363,6 +386,8 @@ fun MainScreen(resumeTick: Int) {
             item { PrivacyEntryCard { showPrivacy = true } }
         }
     }
+    streakAnim?.let { anim -> StreakAnimationOverlay(anim) { streakAnim = null } }
+    }
 
     if (showPicker) {
         AppPickerDialog(
@@ -435,6 +460,8 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = container, contentColor = content),
     ) {
+        Box {
+        StreakCardDecoration(bright = bright, ink = content, modifier = Modifier.matchParentSize())
         Column(
             Modifier
                 .fillMaxWidth()
@@ -463,6 +490,7 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
                     modifier = Modifier.alpha(0.8f),
                 )
             }
+        }
         }
     }
 }
@@ -493,24 +521,18 @@ fun WeekCard(week: List<DayStatus>) {
 
 @Composable
 private fun DayDot(day: DayStatus) {
+    // Día salvado: una nube. Día cumplido: un sol.
     if (day.saved && day.ok == true) {
-        Box(
-            Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surface)
-                .border(BorderStroke(2.dp, Green), CircleShape),
-        ) {
-            Canvas(Modifier.fillMaxSize()) {
-                drawArc(AlbaColors.Sol, startAngle = 180f, sweepAngle = 180f, useCenter = true)
-            }
-        }
+        CloudDayIcon(Modifier.size(36.dp))
+        return
+    }
+    if (day.ok == true) {
+        SunDayIcon(Modifier.size(36.dp))
         return
     }
     val (bg, symbol, fg) = when (day.ok) {
-        true -> Triple(Green, "✓", AlbaColors.Noche)
         false -> Triple(Muted, "·", AlbaColors.Arena)
-        null -> Triple(
+        else -> Triple(
             MaterialTheme.colorScheme.surface,
             if (day.isToday) "•" else "–",
             MaterialTheme.colorScheme.onSurfaceVariant,
@@ -745,7 +767,7 @@ fun LimitDialog(
     onDelete: () -> Unit,
 ) {
     var minutes by remember(goal.pkg) {
-        mutableFloatStateOf(goal.limitMinutes.coerceIn(5, 180).toFloat())
+        mutableFloatStateOf(goal.limitMinutes.coerceIn(Store.MIN_LIMIT_MINUTES, Store.MAX_LIMIT_MINUTES).toFloat())
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -763,8 +785,13 @@ fun LimitDialog(
                 Slider(
                     value = minutes,
                     onValueChange = { minutes = it },
-                    valueRange = 5f..180f,
-                    steps = 34, // saltos de 5 minutos
+                    valueRange = Store.MIN_LIMIT_MINUTES.toFloat()..Store.MAX_LIMIT_MINUTES.toFloat(),
+                    steps = (Store.MAX_LIMIT_MINUTES - Store.MIN_LIMIT_MINUTES) / 5 - 1, // saltos de 5 minutos
+                )
+                Text(
+                    tr("Máximo 1 hora al día.", "Maximum 1 hour a day.", "Massimo 1 ora al giorno."),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
                     tr("Te avisaré cuando te quede poco.", "I'll let you know when you're running low.", "Ti avviserò quando te ne resterà poco."),
