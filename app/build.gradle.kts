@@ -12,8 +12,8 @@ android {
         applicationId = "com.rachadetox.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 15
-        versionName = "1.93"
+        versionCode = 16
+        versionName = "1.93.2"
     }
 
     // Firma fija: permite instalar versiones nuevas encima sin perder los datos

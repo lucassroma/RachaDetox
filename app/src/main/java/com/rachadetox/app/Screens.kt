@@ -190,6 +190,7 @@ fun MainScreen(resumeTick: Int) {
     var streakAnimDay by remember { mutableStateOf(LocalDate.now()) }
     val autoState = remember(resumeTick, refresh) { store.autoBlockActive() to store.autoBlockTurningOff() }
     val blockedToday = remember(resumeTick, refresh, info) { store.blockedTodayPackages().toSet() }
+    val blockerOn = remember(resumeTick, refresh, info) { BlockerService.isEnabled(context) }
     val extraUsed = remember(resumeTick, refresh, info) { store.extraUsed(LocalDate.now()) }
 
     fun useExtra() {
@@ -361,6 +362,12 @@ fun MainScreen(resumeTick: Int) {
 
             val over = info?.overToday.orEmpty()
             val recovery = info?.recovery
+            // Hay apps que deben estar cerradas pero Alba no tiene permiso para cerrarlas
+            val mustBlock = blockedToday.isNotEmpty() ||
+                (recovery != null && !recovery.forfeited && recovery.day == LocalDate.now())
+            if (mustBlock && !blockerOn) {
+                item { BlockerNeededCard { showBlockSetup = true } }
+            }
             if (recovery != null) {
                 val names = recovery.pkgs.map { pkg -> goals.firstOrNull { it.pkg == pkg }?.label ?: pkg }
                 item { RecoveryCard(recovery, names, isTrialDay = recovery.day != LocalDate.now()) }
@@ -1006,6 +1013,35 @@ fun SaveStreakCard(apps: List<Goal>, canSave: Boolean, saveLeftMillis: Long, onS
                 colors = ButtonDefaults.buttonColors(containerColor = AlbaColors.Sol, contentColor = AlbaColors.Noche),
             ) { Text(tr("Cerrar $names hasta mañana", "Close $names until tomorrow", "Chiudi $names fino a domani")) }
             }
+        }
+    }
+}
+
+@Composable
+fun BlockerNeededCard(onFix: () -> Unit) {
+    Card(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = AlbaColors.Alba, contentColor = AlbaColors.Noche),
+    ) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                tr("Alba no puede cerrar tus apps", "Alba can't close your apps", "Alba non può chiudere le tue app"),
+                style = MaterialTheme.typography.titleLarge,
+                fontFamily = FontFamily.Serif,
+            )
+            Text(
+                tr(
+                    "Hoy hay apps que tienen que estar cerradas, pero el permiso de Accesibilidad de Alba está apagado (a veces el móvil lo apaga al actualizar). Actívalo para que se cierren.",
+                    "Some apps must be closed today, but Alba's Accessibility permission is off (phones sometimes turn it off after an update). Turn it on so they close.",
+                    "Oggi alcune app devono restare chiuse, ma l'autorizzazione Accessibilità di Alba è disattivata (a volte il telefono la spegne dopo un aggiornamento). Attivala per chiuderle.",
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Button(
+                onClick = onFix,
+                colors = ButtonDefaults.buttonColors(containerColor = AlbaColors.Noche, contentColor = AlbaColors.Arena),
+            ) { Text(tr("Activar el bloqueo", "Turn on blocking", "Attiva il blocco")) }
         }
     }
 }

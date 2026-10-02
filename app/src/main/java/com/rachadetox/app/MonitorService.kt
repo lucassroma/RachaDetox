@@ -70,6 +70,22 @@ class MonitorService : Service() {
         val info = StreakEngine.info(ctx, goals, usage)
         StreakEngine.applyTotalLoss(ctx, info)
         val today = LocalDate.now().toString()
+        // Hay apps que deben estar cerradas y Alba no tiene permiso para cerrarlas: avisar
+        if (store.blockedTodayPackages().isNotEmpty() && !BlockerService.isEnabled(ctx)) {
+            val key = "$today|blocker_off"
+            if (!store.alertSent(key)) {
+                store.markAlert(key)
+                Notifier.alert(
+                    ctx, BLOCKER_ALERT_ID,
+                    tr("Alba no puede cerrar tus apps", "Alba can't close your apps", "Alba non può chiudere le tue app"),
+                    tr(
+                        "El permiso de Accesibilidad está apagado. Toca aquí y actívalo para que hoy se cierren.",
+                        "The Accessibility permission is off. Tap here and turn it on so they close today.",
+                        "L'autorizzazione Accessibilità è disattivata. Tocca qui e attivala perché oggi si chiudano.",
+                    ),
+                )
+            }
+        }
         store.pruneAlerts(today)
 
         for (goal in goals) {
@@ -187,6 +203,7 @@ class MonitorService : Service() {
     companion object {
         private const val TICK_MS = 20_000L
         private const val SAVE_ALERT_ID = 900
+        private const val BLOCKER_ALERT_ID = 901
 
         fun start(context: Context) {
             try {

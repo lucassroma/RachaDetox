@@ -4,6 +4,9 @@ import android.accessibilityservice.AccessibilityService
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
+import java.util.concurrent.Executors
 import android.provider.Settings
 import android.view.accessibility.AccessibilityEvent
 import android.view.inputmethod.InputMethodManager
@@ -17,6 +20,25 @@ class BlockerService : AccessibilityService() {
 
     private var current: String? = null
     private var ignored: Set<String> = emptySet()
+
+    // Mientras usas una app con límite, el propio servicio mira cada 15 s si has perdido la
+    // racha del todo, para cerrarla aunque Android haya parado el servicio de segundo plano.
+    private val handler = Handler(Looper.getMainLooper())
+    private val worker = Executors.newSingleThreadExecutor()
+    private val watch = object : Runnable {
+        override fun run() {
+            val pkg = current ?: return
+            if (Store(this@BlockerService).goals().none { it.pkg == pkg }) return
+            worker.execute {
+                try {
+                    StreakEngine.refreshToday(this@BlockerService)
+                } catch (_: Exception) {
+                }
+                handler.post { current?.let { check(it) } }
+            }
+            handler.postDelayed(this, WATCH_MS)
+        }
+    }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -33,9 +55,17 @@ class BlockerService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val pkg = event.packageName?.toString() ?: return
+        if (pkg == packageName) {
+            // Estás en Alba: ya no hay otra app delante que cerrar
+            current = null
+            handler.removeCallbacks(watch)
+            return
+        }
         if (pkg in ignored) return
         current = pkg
         check(pkg)
+        handler.removeCallbacks(watch)
+        if (current != null) handler.post(watch)
     }
 
     /** Vuelve a mirar la app actual (p. ej. justo después de bloquearla). */
@@ -68,11 +98,15 @@ class BlockerService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
+        handler.removeCallbacks(watch)
+        worker.shutdown()
         if (instance === this) instance = null
         super.onDestroy()
     }
 
     companion object {
+        private const val WATCH_MS = 15_000L
+
         @Volatile
         var instance: BlockerService? = null
 

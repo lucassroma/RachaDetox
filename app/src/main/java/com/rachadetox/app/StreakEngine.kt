@@ -84,6 +84,18 @@ object StreakEngine {
         if (streak > store.bestStreak()) store.setBestStreak(streak)
     }
 
+    /** Calcula cómo va hoy y aplica el bloqueo si la racha se ha perdido del todo. */
+    fun refreshToday(context: Context): StreakInfo? {
+        if (!UsageTracker.hasPermission(context)) return null
+        val goals = Store(context).goals()
+        if (goals.isEmpty()) return null
+        evaluatePastDays(context)
+        val usage = UsageTracker.usageToday(context, goals.map { it.pkg }.toSet())
+        val info = info(context, goals, usage)
+        applyTotalLoss(context, info)
+        return info
+    }
+
     /**
      * Racha perdida del todo (más de 15 minutos de más): se cierran hasta mañana las apps en
      * las que te has pasado y se apunta la segunda oportunidad para mañana.
