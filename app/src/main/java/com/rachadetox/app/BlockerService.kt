@@ -86,8 +86,20 @@ class BlockerService : AccessibilityService() {
             return
         }
         if (!store.isBlockedToday(pkg)) return
-        // «Cinco minutos más»: mientras queden minutos de regalo, la app se puede usar
-        if (UsageTracker.extraLeftToday(this, pkg) > 0L) return
+        // «Cinco minutos más»: mientras queden minutos de regalo, la app se puede usar.
+        // Pero si es una de las que hay que no abrir para recuperar la racha, antes el aviso.
+        if (UsageTracker.extraLeftToday(this, pkg) > 0L) {
+            val r = store.recovery()
+            if (r != null && !r.forfeited && r.day == java.time.LocalDate.now() && pkg in r.pkgs) {
+                startActivity(
+                    Intent(this, GuardActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        .putExtra(GuardActivity.EXTRA_PKG, pkg)
+                )
+                current = null
+            }
+            return
+        }
         performGlobalAction(GLOBAL_ACTION_HOME)
         startActivity(
             Intent(this, BlockActivity::class.java)

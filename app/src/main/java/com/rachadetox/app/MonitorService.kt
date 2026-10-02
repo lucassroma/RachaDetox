@@ -151,7 +151,7 @@ class MonitorService : Service() {
         }
 
         // Te has pasado y no has salvado la racha: avisos según se acaba el margen de 15 minutos
-        if (!info.todayOk && info.completed >= 1) {
+        if (!info.todayOk) {
             fun saveAlert(level: String, title: String, text: String) {
                 val key = "$today|save|$level"
                 if (!store.alertSent(key)) {
@@ -162,9 +162,9 @@ class MonitorService : Service() {
             val left = info.saveLeftMillis
             val leftMin = ((left + 59_999L) / 60_000L).toInt()
             fun leftText() = tr(
-                "Si te pasas $leftMin min más, ya no podrás salvar tu racha de ${info.completed} ${dias(info.completed)}. Toca aquí para salvarla.",
-                "$leftMin more min over and you can't save your streak of ${info.completed} ${dias(info.completed)}. Tap here to save it.",
-                "Ancora $leftMin min oltre e non potrai più salvare la tua serie di ${info.completed} ${dias(info.completed)}. Tocca qui per salvarla.",
+                "Si te pasas $leftMin min más, ya no podrás salvar ${streakName(info.completed)}. Toca aquí para salvarla.",
+                "$leftMin more min over and you can't save ${streakName(info.completed)}. Tap here to save it.",
+                "Ancora $leftMin min oltre e non potrai più salvare ${streakName(info.completed)}. Tocca qui per salvarla.",
             )
             val title = tr("El cielo se oscurece", "The sky is getting darker", "Il cielo si scurisce")
             when {
@@ -172,9 +172,9 @@ class MonitorService : Service() {
                     "lost",
                     tr("Racha perdida", "Streak lost", "Serie persa"),
                     tr(
-                        "Te has pasado más de 15 minutos y he cerrado esas apps hasta mañana. Si mañana no las abres, recuperas tu racha de ${info.completed} ${dias(info.completed)}.",
-                        "You went over by more than 15 minutes, so I've closed those apps until tomorrow. If you don't open them tomorrow, you get your streak of ${info.completed} ${dias(info.completed)} back.",
-                        "Hai superato di più di 15 minuti e ho chiuso quelle app fino a domani. Se domani non le apri, recuperi la tua serie di ${info.completed} ${dias(info.completed)}.",
+                        "Te has pasado más de 15 minutos y he cerrado esas apps hasta mañana. Si no las abres ni hoy ni en todo mañana, recuperas ${streakName(info.completed)}.",
+                        "You went over by more than 15 minutes, so I've closed those apps until tomorrow. If you don't open them for the rest of today and all of tomorrow, you get ${streakName(info.completed)} back.",
+                        "Hai superato di più di 15 minuti e ho chiuso quelle app fino a domani. Se non le apri né oggi né per tutto domani, recuperi ${streakName(info.completed)}.",
                     ),
                 )
                 left <= 2 * 60_000L -> saveAlert("2", title, leftText())
@@ -223,3 +223,10 @@ fun inARow(n: Int) = tr(
     "$n ${dias(n)} in a row",
     "$n ${dias(n)} di fila",
 )
+
+/** "tu racha de 3 días", o "tu racha" si aún no tenía días. */
+fun streakName(n: Int) = if (n >= 1) tr(
+    "tu racha de $n ${dias(n)}",
+    "your streak of $n ${dias(n)}",
+    "la tua serie di $n ${dias(n)}",
+) else tr("tu racha", "your streak", "la tua serie")

@@ -549,9 +549,9 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
             "Oggi non aprire le app chiuse ieri e a mezzanotte la tua serie torna.",
         )
         kept != null -> tr(
-            "Si mañana no abres las apps que se han cerrado, tu racha vuelve.",
-            "If you don't open the closed apps tomorrow, your streak comes back.",
-            "Se domani non apri le app chiuse, la tua serie torna.",
+            "Si no abres las apps cerradas ni hoy ni en todo mañana, tu racha vuelve.",
+            "If you don't open the closed apps for the rest of today and all of tomorrow, your streak comes back.",
+            "Se non apri le app chiuse né oggi né per tutto domani, la tua serie torna.",
         )
         cloudy -> tr("Hoy se ha nublado. Mañana vuelve a salir el sol.", "Clouds rolled in today. Tomorrow the sun rises again.", "Oggi si è rannuvolato. Domani torna il sole.")
         info.todaySaved -> tr("Día salvado. Medio sol, pero sol.", "Day saved. Half a sun, but still a sun.", "Giornata salvata. Mezzo sole, ma pur sempre sole.")
@@ -1116,25 +1116,25 @@ fun RecoveryCard(recovery: Recovery, names: List<String>, isTrialDay: Boolean) {
         recovery.forfeited -> Pair(
             tr("Racha perdida", "Streak lost", "Serie persa"),
             tr(
-                "Has abierto $apps: tu racha de $n ${dias(n)} ya no se puede recuperar. Mañana vuelve a salir el sol.",
-                "You opened $apps: your streak of $n ${dias(n)} can't be recovered anymore. Tomorrow the sun rises again.",
-                "Hai aperto $apps: la tua serie di $n ${dias(n)} non si può più recuperare. Domani torna il sole.",
+                "Has abierto $apps: ${streakName(n)} ya no se puede recuperar. Mañana vuelve a salir el sol.",
+                "You opened $apps: ${streakName(n)} can't be recovered anymore. Tomorrow the sun rises again.",
+                "Hai aperto $apps: ${streakName(n)} non si può più recuperare. Domani torna il sole.",
             ),
         )
         isTrialDay -> Pair(
             tr("Recupera tu racha", "Get your streak back", "Recupera la tua serie"),
             tr(
-                "Hoy no abras $apps. Si llegas a medianoche sin abrirlas, recuperas tu racha de $n ${dias(n)}.",
-                "Don't open $apps today. If you reach midnight without opening them, you get your streak of $n ${dias(n)} back.",
-                "Oggi non aprire $apps. Se arrivi a mezzanotte senza aprirle, recuperi la tua serie di $n ${dias(n)}.",
+                "Hoy no abras $apps. Si llegas a medianoche sin abrirlas, recuperas ${streakName(n)}.",
+                "Don't open $apps today. If you reach midnight without opening them, you get ${streakName(n)} back.",
+                "Oggi non aprire $apps. Se arrivi a mezzanotte senza aprirle, recuperi ${streakName(n)}.",
             ),
         )
         else -> Pair(
             tr("Racha guardada", "Streak kept", "Serie custodita"),
             tr(
-                "Te has pasado más de 15 minutos y $apps se han cerrado hasta mañana. Si mañana tampoco las abres, recuperas tu racha de $n ${dias(n)}.",
-                "You went over by more than 15 minutes and $apps are closed until tomorrow. If you don't open them tomorrow either, you get your streak of $n ${dias(n)} back.",
-                "Hai superato di più di 15 minuti e $apps sono chiuse fino a domani. Se domani non le apri, recuperi la tua serie di $n ${dias(n)}.",
+                "Te has pasado más de 15 minutos y $apps se han cerrado hasta mañana. Si no las abres ni hoy ni en todo mañana, recuperas ${streakName(n)}.",
+                "You went over by more than 15 minutes and $apps are closed until tomorrow. If you don't open them for the rest of today and all of tomorrow, you get ${streakName(n)} back.",
+                "Hai superato di più di 15 minuti e $apps sono chiuse fino a domani. Se non le apri né oggi né per tutto domani, recuperi ${streakName(n)}.",
             ),
         )
     }

@@ -101,7 +101,7 @@ object StreakEngine {
      * las que te has pasado y se apunta la segunda oportunidad para mañana.
      */
     fun applyTotalLoss(context: Context, info: StreakInfo) {
-        if (info.todayOk || info.canSave || info.completed < 1 || info.overToday.isEmpty()) return
+        if (info.todayOk || info.canSave || info.overToday.isEmpty()) return
         val store = Store(context)
         val today = LocalDate.now()
         val previous = store.recovery()?.takeIf { it.day == today }

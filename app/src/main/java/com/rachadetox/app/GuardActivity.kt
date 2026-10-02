@@ -70,9 +70,9 @@ class GuardActivity : ComponentActivity() {
                     Spacer(Modifier.height(14.dp))
                     Text(
                         tr(
-                            "No podrás recuperar tu racha de $streak ${dias(streak)}.\nSi hoy no abres $label, a medianoche vuelve.",
-                            "You won't be able to get back your streak of $streak ${dias(streak)}.\nIf you don't open $label today, it comes back at midnight.",
-                            "Non potrai recuperare la tua serie di $streak ${dias(streak)}.\nSe oggi non apri $label, a mezzanotte torna.",
+                            "No podrás recuperar ${streakName(streak)}.\nSi no abres $label, la recuperas.",
+                            "You won't be able to get back ${streakName(streak)}.\nIf you don't open $label, you get it back.",
+                            "Non potrai recuperare ${streakName(streak)}.\nSe non apri $label, la recuperi.",
                         ),
                         color = AlbaColors.Arena.copy(alpha = 0.85f),
                         fontSize = 18.sp,
