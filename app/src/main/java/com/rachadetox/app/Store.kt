@@ -241,6 +241,23 @@ class Store(context: Context) {
         edit.apply()
     }
 
+    /** Vuelve a cerrar hasta medianoche una app que desbloqueaste hoy. */
+    fun reblockToday(pkg: String) {
+        val today = LocalDate.now().toString()
+        val unblocked = HashSet((prefs.getStringSet(KEY_UNBLOCKED, emptySet()) ?: emptySet()).filter { it.startsWith(today) })
+        unblocked.remove("$today|$pkg")
+        prefs.edit().putStringSet(KEY_UNBLOCKED, unblocked).apply()
+        blockToday(listOf(pkg))
+    }
+
+    fun unblockedTodayPackages(): Set<String> {
+        val prefix = "${LocalDate.now()}|"
+        return (prefs.getStringSet(KEY_UNBLOCKED, emptySet()) ?: emptySet())
+            .filter { it.startsWith(prefix) }
+            .map { it.removePrefix(prefix) }
+            .toSet()
+    }
+
     fun wasUnblockedToday(pkg: String): Boolean =
         prefs.getStringSet(KEY_UNBLOCKED, emptySet())?.contains("${LocalDate.now()}|$pkg") == true
 

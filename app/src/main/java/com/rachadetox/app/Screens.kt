@@ -191,6 +191,7 @@ fun MainScreen(resumeTick: Int) {
     var streakAnimDay by remember { mutableStateOf(LocalDate.now()) }
     val autoState = remember(resumeTick, refresh) { store.autoBlockActive() to store.autoBlockTurningOff() }
     val blockedToday = remember(resumeTick, refresh, info) { store.blockedTodayPackages().toSet() }
+    val unblockedToday = remember(resumeTick, refresh, info) { store.unblockedTodayPackages() }
     val blockerOn = remember(resumeTick, refresh, info) { BlockerService.isWorking(context) }
     val blockerStuck = remember(resumeTick, refresh, info) { BlockerService.isEnabled(context) && BlockerService.instance == null }
     val extraUsed = remember(resumeTick, refresh, info) { store.extraUsed(LocalDate.now()) }
@@ -419,7 +420,17 @@ fun MainScreen(resumeTick: Int) {
                     goal, usage[goal.pkg] ?: 0L,
                     blocked = goal.pkg in blockedToday,
                     extraLeftMs = extraLeft[goal.pkg] ?: 0L,
+                    canReblock = goal.pkg in unblockedToday && goal.pkg !in blockedToday,
                     onUnblock = { unblocking = goal },
+                    onReblock = {
+                        if (BlockerService.isWorking(context)) {
+                            store.reblockToday(goal.pkg)
+                            BlockerService.instance?.enforceNow()
+                            refresh++
+                        } else {
+                            showBlockSetup = true
+                        }
+                    },
                 ) {
                     editingIsNew = false
                     editing = goal
@@ -665,7 +676,9 @@ fun GoalCard(
     used: Long,
     blocked: Boolean = false,
     extraLeftMs: Long = 0L,
+    canReblock: Boolean = false,
     onUnblock: () -> Unit = {},
+    onReblock: () -> Unit = {},
     onClick: () -> Unit,
 ) {
     val fraction = (used.toFloat() / goal.limitMillis).coerceIn(0f, 1f)
@@ -726,6 +739,10 @@ fun GoalCard(
                 if (blocked) {
                     TextButton(onClick = onUnblock, contentPadding = PaddingValues(0.dp)) {
                         Text(tr("Desbloquear", "Unblock", "Sblocca"))
+                    }
+                } else if (canReblock) {
+                    TextButton(onClick = onReblock, contentPadding = PaddingValues(0.dp)) {
+                        Text(tr("Volver a bloquear hasta mañana", "Block again until tomorrow", "Blocca di nuovo fino a domani"))
                     }
                 }
             }
