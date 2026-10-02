@@ -5,7 +5,10 @@ App Android: elige cuánto tiempo al día le das a cada app y construye una rach
 ## Cómo funciona
 - Eliges una o varias apps y un tiempo máximo al día (de 5 min a 1 h).
 - Un día cuenta para la racha si **todas** las apps se quedan dentro de su límite.
-- Los días se cierran a medianoche. Si te pasas, la racha vuelve a 0.
+- Los días se cierran a medianoche. Si te pasas del límite y no salvas tu racha, la pierdes.
+- Para salvarla cierras hasta mañana las apps en las que te has pasado. Solo se puede si no te has pasado más de 15 minutos.
+- Una app bloqueada se puede desbloquear; si te habías pasado con ella, la racha deja de estar salvada.
+- Si cambias el límite de una app, el cambio no se aplica hasta el día siguiente.
 - Avisos: al 80 % del límite, cuando queda 1 minuto y si te pasas.
 - Todo se guarda en el móvil; no hay servidor ni cuentas.
 

@@ -5,15 +5,24 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
 
-/** Una app vigilada y su límite diario. */
-data class Goal(val pkg: String, val label: String, val limitMinutes: Int) {
+/**
+ * Una app vigilada y su límite diario.
+ * [nextLimitMinutes]: límite nuevo que se ha pedido y que empieza a contar mañana.
+ */
+data class Goal(val pkg: String, val label: String, val limitMinutes: Int, val nextLimitMinutes: Int? = null) {
     val limitMillis: Long get() = limitMinutes * 60_000L
 
     /** Te has pasado (con 1 minuto de margen, porque la comprobación no es instantánea). */
     fun isOver(usedMillis: Long): Boolean = usedMillis > limitMillis + GRACE_MS
 
+    /** Cuánto te has pasado del límite (0 si no). */
+    fun overBy(usedMillis: Long): Long = (usedMillis - limitMillis).coerceAtLeast(0L)
+
     companion object {
         const val GRACE_MS = 60_000L
+
+        /** Solo puedes salvar la racha si no te has pasado más de esto. */
+        const val SAVE_WINDOW_MS = 15 * 60_000L
     }
 }
 
@@ -25,36 +34,77 @@ class Store(context: Context) {
 
     // ---------- Apps y límites ----------
 
-    fun goals(): List<Goal> {
+    /**
+     * Cómo se guarda cada app: "limit" es el límite vigente y, si se ha cambiado,
+     * "next" es el nuevo, que vale a partir del día "nextFrom".
+     */
+    private fun rawGoals(): List<JSONObject> {
         val arr = JSONArray(prefs.getString(KEY_GOALS, "[]"))
-        return (0 until arr.length()).map { i ->
-            val o = arr.getJSONObject(i)
-            Goal(o.getString("pkg"), o.getString("label"), o.getInt("limit"))
-        }
+        return (0 until arr.length()).map { arr.getJSONObject(it) }
     }
 
-    private fun saveGoals(goals: List<Goal>) {
-        val arr = JSONArray()
-        goals.forEach {
-            arr.put(JSONObject().put("pkg", it.pkg).put("label", it.label).put("limit", it.limitMinutes))
-        }
-        prefs.edit().putString(KEY_GOALS, arr.toString()).apply()
+    private fun saveRaw(goals: List<JSONObject>) {
+        prefs.edit().putString(KEY_GOALS, JSONArray(goals).toString()).apply()
     }
 
-    fun upsertGoal(goal: Goal) {
-        val current = goals()
-        val updated = if (current.any { it.pkg == goal.pkg }) {
-            current.map { if (it.pkg == goal.pkg) goal else it }
+    /** Las apps con el límite que vale el día [day] (por defecto, hoy). */
+    fun goals(day: LocalDate = LocalDate.now()): List<Goal> = rawGoals().map { o ->
+        val next = if (o.has("next")) o.getInt("next") else null
+        val from = o.optString("nextFrom").takeIf { it.isNotEmpty() }?.let { LocalDate.parse(it) }
+        val nextApplies = next != null && from != null && !day.isBefore(from)
+        Goal(
+            o.getString("pkg"),
+            o.getString("label"),
+            if (nextApplies) next!! else o.getInt("limit"),
+            nextLimitMinutes = if (next != null && !nextApplies) next else null,
+        )
+    }
+
+    /** Añade una app nueva. Si la quitaste hoy, vuelve con el límite que tenía y el nuevo vale desde mañana. */
+    fun addGoal(goal: Goal) {
+        val today = LocalDate.now()
+        val removed = JSONObject(prefs.getString(KEY_REMOVED, "{}") ?: "{}").optJSONObject(goal.pkg)
+        val o = JSONObject().put("pkg", goal.pkg).put("label", goal.label)
+        if (removed != null && removed.optString("day") == today.toString()) {
+            val old = removed.getInt("limit")
+            o.put("limit", old)
+            if (old != goal.limitMinutes) o.put("next", goal.limitMinutes).put("nextFrom", today.plusDays(1).toString())
         } else {
-            current + goal
+            o.put("limit", goal.limitMinutes)
         }
-        saveGoals(updated)
+        saveRaw(rawGoals().filter { it.getString("pkg") != goal.pkg } + o)
         if (startDate() == null) {
-            prefs.edit().putString(KEY_START, LocalDate.now().toString()).apply()
+            prefs.edit().putString(KEY_START, today.toString()).apply()
         }
     }
 
-    fun removeGoal(pkg: String) = saveGoals(goals().filter { it.pkg != pkg })
+    /** Cambia el límite de una app. El cambio no se aplica hasta mañana. */
+    fun changeLimit(pkg: String, minutes: Int) {
+        val today = LocalDate.now()
+        val todayLimit = goals(today).firstOrNull { it.pkg == pkg }?.limitMinutes ?: return
+        saveRaw(rawGoals().map { o ->
+            if (o.getString("pkg") == pkg) {
+                o.put("limit", todayLimit)
+                if (minutes == todayLimit) {
+                    o.remove("next")
+                    o.remove("nextFrom")
+                } else {
+                    o.put("next", minutes).put("nextFrom", today.plusDays(1).toString())
+                }
+            }
+            o
+        })
+    }
+
+    fun removeGoal(pkg: String) {
+        // Recordamos el límite de hoy para que quitar y volver a añadir no sirva para saltárselo
+        goals().firstOrNull { it.pkg == pkg }?.let {
+            val removed = JSONObject(prefs.getString(KEY_REMOVED, "{}") ?: "{}")
+            removed.put(pkg, JSONObject().put("day", LocalDate.now().toString()).put("limit", it.limitMinutes))
+            prefs.edit().putString(KEY_REMOVED, removed.toString()).apply()
+        }
+        saveRaw(rawGoals().filter { it.getString("pkg") != pkg })
+    }
 
     // ---------- Historial de días ----------
 
@@ -125,6 +175,19 @@ class Store(context: Context) {
             .map { it.removePrefix(prefix) }
     }
 
+    /** Desbloquea una app por hoy. El bloqueo automático ya no la vuelve a cerrar hoy. */
+    fun unblockToday(pkg: String) {
+        val today = LocalDate.now().toString()
+        val blocks = HashSet((prefs.getStringSet(KEY_BLOCKS, emptySet()) ?: emptySet()).filter { it.startsWith(today) })
+        blocks.remove("$today|$pkg")
+        val unblocked = HashSet((prefs.getStringSet(KEY_UNBLOCKED, emptySet()) ?: emptySet()).filter { it.startsWith(today) })
+        unblocked.add("$today|$pkg")
+        prefs.edit().putStringSet(KEY_BLOCKS, blocks).putStringSet(KEY_UNBLOCKED, unblocked).apply()
+    }
+
+    fun wasUnblockedToday(pkg: String): Boolean =
+        prefs.getStringSet(KEY_UNBLOCKED, emptySet())?.contains("${LocalDate.now()}|$pkg") == true
+
     /** Días en los que te pasaste pero aceptaste el bloqueo: cuentan para la racha. */
     fun isSaved(day: LocalDate): Boolean =
         prefs.getStringSet(KEY_SAVED, emptySet())?.contains(day.toString()) == true
@@ -133,6 +196,11 @@ class Store(context: Context) {
         val set = HashSet(prefs.getStringSet(KEY_SAVED, emptySet()) ?: emptySet())
         set.add(day.toString())
         prefs.edit().putStringSet(KEY_SAVED, set).apply()
+    }
+
+    fun unmarkSaved(day: LocalDate) {
+        val set = HashSet(prefs.getStringSet(KEY_SAVED, emptySet()) ?: emptySet())
+        if (set.remove(day.toString())) prefs.edit().putStringSet(KEY_SAVED, set).apply()
     }
 
     /** Bloqueo automático al llegar al límite. Apagarlo solo surte efecto al día siguiente. */
@@ -171,6 +239,8 @@ class Store(context: Context) {
         const val MIN_LIMIT_MINUTES = 5
 
         private const val KEY_BLOCKS = "blocks"
+        private const val KEY_UNBLOCKED = "unblocked"
+        private const val KEY_REMOVED = "removed_goals"
         private const val KEY_SAVED = "saved_days"
         private const val KEY_AUTO = "auto_block"
         private const val KEY_AUTO_OFF = "auto_block_off_from"

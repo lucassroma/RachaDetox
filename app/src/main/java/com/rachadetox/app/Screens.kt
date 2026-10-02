@@ -178,6 +178,7 @@ fun MainScreen(resumeTick: Int) {
     var showPicker by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Goal?>(null) }
     var editingIsNew by remember { mutableStateOf(false) }
+    var unblocking by remember { mutableStateOf<Goal?>(null) }
     var showWhy by rememberSaveable { mutableStateOf(false) }
     var showProfile by rememberSaveable { mutableStateOf(false) }
     var showPrivacy by rememberSaveable { mutableStateOf(false) }
@@ -194,7 +195,7 @@ fun MainScreen(resumeTick: Int) {
         when (action) {
             "save" -> {
                 val pkgs = info?.overToday?.map { it.pkg }.orEmpty()
-                if (pkgs.isNotEmpty()) {
+                if (pkgs.isNotEmpty() && info?.canSave == true) {
                     store.blockToday(pkgs)
                     store.markSaved(LocalDate.now())
                     BlockerService.instance?.enforceNow()
@@ -243,6 +244,12 @@ fun MainScreen(resumeTick: Int) {
     // Refresca el tiempo de hoy cada 5 segundos mientras la app está abierta
     LaunchedEffect(goals, resumeTick, refresh) {
         while (true) {
+            // A medianoche entran en vigor los límites cambiados ayer
+            val todayGoals = store.goals()
+            if (todayGoals != goals) {
+                goals = todayGoals
+                return@LaunchedEffect
+            }
             val result = withContext(Dispatchers.Default) {
                 StreakEngine.evaluatePastDays(context)
                 val todayUsage = UsageTracker.usageToday(context, goals.map { it.pkg }.toSet())
@@ -257,7 +264,8 @@ fun MainScreen(resumeTick: Int) {
     // Animación de racha: una vez al día por tipo (ganar, perder, salvar).
     // Solo se marca como vista cuando de verdad se ha mostrado y cerrado, así que
     // cada día de racha la ves una vez aunque abras la app varias veces.
-    val subScreenOpen = showWhy || showPrivacy || showProfile || showPicker || showLanguage
+    val subScreenOpen = showWhy || showPrivacy || showProfile || showPicker || showLanguage ||
+        editing != null || unblocking != null
     LaunchedEffect(info, subScreenOpen) {
         val i = info ?: return@LaunchedEffect
         if (streakAnim != null || goals.isEmpty() || subScreenOpen) return@LaunchedEffect
@@ -326,7 +334,7 @@ fun MainScreen(resumeTick: Int) {
 
             val over = info?.overToday.orEmpty()
             if (over.isNotEmpty() && info?.todaySaved != true) {
-                item { SaveStreakCard(over) { request("save") } }
+                item { SaveStreakCard(over, info?.canSave == true, info?.saveLeftMillis ?: 0L) { request("save") } }
             }
 
             val currentInfo = info
@@ -362,7 +370,11 @@ fun MainScreen(resumeTick: Int) {
             }
 
             items(goals, key = { it.pkg }) { goal ->
-                GoalCard(goal, usage[goal.pkg] ?: 0L, blocked = goal.pkg in blockedToday) {
+                GoalCard(
+                    goal, usage[goal.pkg] ?: 0L,
+                    blocked = goal.pkg in blockedToday,
+                    onUnblock = { unblocking = goal },
+                ) {
                     editingIsNew = false
                     editing = goal
                 }
@@ -420,13 +432,27 @@ fun MainScreen(resumeTick: Int) {
         })
     }
 
+    unblocking?.let { goal ->
+        UnblockDialog(
+            goal = goal,
+            isOver = goal.isOver(usage[goal.pkg] ?: 0L),
+            onDismiss = { unblocking = null },
+            onConfirm = {
+                store.unblockToday(goal.pkg)
+                unblocking = null
+                refresh++
+            },
+        )
+    }
+
     editing?.let { goal ->
         LimitDialog(
             goal = goal,
             isNew = editingIsNew,
             onDismiss = { editing = null },
             onSave = { minutes ->
-                store.upsertGoal(goal.copy(limitMinutes = minutes))
+                if (editingIsNew) store.addGoal(goal.copy(limitMinutes = minutes))
+                else store.changeLimit(goal.pkg, minutes)
                 goals = store.goals()
                 editing = null
             },
@@ -554,7 +580,7 @@ private fun DayDot(day: DayStatus) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GoalCard(goal: Goal, used: Long, blocked: Boolean = false, onClick: () -> Unit) {
+fun GoalCard(goal: Goal, used: Long, blocked: Boolean = false, onUnblock: () -> Unit = {}, onClick: () -> Unit) {
     val fraction = (used.toFloat() / goal.limitMillis).coerceIn(0f, 1f)
     val over = goal.isOver(used)
     val barColor = when {
@@ -601,9 +627,49 @@ fun GoalCard(goal: Goal, used: Long, blocked: Boolean = false, onClick: () -> Un
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                goal.nextLimitMinutes?.let { next ->
+                    Text(
+                        tr("Desde mañana: ", "From tomorrow: ", "Da domani: ") + formatMinutes(next),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (blocked) {
+                    TextButton(onClick = onUnblock, contentPadding = PaddingValues(0.dp)) {
+                        Text(tr("Desbloquear", "Unblock", "Sblocca"))
+                    }
+                }
             }
         }
     }
+}
+
+@Composable
+fun UnblockDialog(goal: Goal, isOver: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { AppIcon(goal.pkg, 48.dp) },
+        title = { Text(tr("¿Desbloquear ${goal.label}?", "Unblock ${goal.label}?", "Sbloccare ${goal.label}?")) },
+        text = {
+            Text(
+                if (isOver) tr(
+                    "Hoy te has pasado con ${goal.label}. Si la desbloqueas, tu racha deja de estar salvada y la pierdes.",
+                    "You went over on ${goal.label} today. If you unblock it, your streak is no longer saved and you lose it.",
+                    "Oggi hai superato il limite con ${goal.label}. Se la sblocchi, la tua serie non è più salvata e la perdi.",
+                ) else tr(
+                    "Podrás volver a usarla hoy. Si te pasas de su límite y no salvas tu racha, la pierdes.",
+                    "You'll be able to use it again today. If you go over its limit and don't save your streak, you lose it.",
+                    "Potrai usarla di nuovo oggi. Se superi il limite e non salvi la tua serie, la perdi.",
+                )
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text(tr("Desbloquear", "Unblock", "Sblocca")) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(tr("Mejor no", "Better not", "Meglio di no")) }
+        },
+    )
 }
 
 @Composable
@@ -769,7 +835,7 @@ fun LimitDialog(
     onDelete: () -> Unit,
 ) {
     var minutes by remember(goal.pkg) {
-        mutableFloatStateOf(goal.limitMinutes.coerceIn(Store.MIN_LIMIT_MINUTES, Store.MAX_LIMIT_MINUTES).toFloat())
+        mutableFloatStateOf((goal.nextLimitMinutes ?: goal.limitMinutes).coerceIn(Store.MIN_LIMIT_MINUTES, Store.MAX_LIMIT_MINUTES).toFloat())
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -800,6 +866,16 @@ fun LimitDialog(
                     style = MaterialTheme.typography.bodySmall,
                 )
                 if (!isNew) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        tr(
+                            "El cambio se aplica mañana. Hoy sigues con ${formatMinutes(goal.limitMinutes)}.",
+                            "The change applies tomorrow. Today you keep ${formatMinutes(goal.limitMinutes)}.",
+                            "La modifica vale da domani. Oggi resti con ${formatMinutes(goal.limitMinutes)}.",
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
                     Spacer(Modifier.height(8.dp))
                     TextButton(onClick = onDelete) {
                         Text(tr("Dejar de contar esta app", "Stop tracking this app", "Smetti di contare questa app"), color = MaterialTheme.colorScheme.error)
@@ -839,7 +915,7 @@ fun WhyEntryCard(onClick: () -> Unit) {
 }
 
 @Composable
-fun SaveStreakCard(apps: List<Goal>, onSave: () -> Unit) {
+fun SaveStreakCard(apps: List<Goal>, canSave: Boolean, saveLeftMillis: Long, onSave: () -> Unit) {
     val names = apps.joinToString(tr(" y ", " and ", " e ")) { it.label }
     Card(
         Modifier.fillMaxWidth(),
@@ -847,19 +923,40 @@ fun SaveStreakCard(apps: List<Goal>, onSave: () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = AlbaColors.Bruma, contentColor = AlbaColors.Arena),
     ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (!canSave) {
+                Text(tr("Hoy ya no se puede salvar", "It can't be saved today", "Oggi non si può più salvare"), style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
+                Text(
+                    tr(
+                        "Te has pasado más de 15 minutos con $names. Esta racha se ha perdido, pero mañana vuelve a salir el sol.",
+                        "You went over by more than 15 minutes on $names. This streak is lost, but tomorrow the sun rises again.",
+                        "Hai superato di più di 15 minuti con $names. Questa serie è persa, ma domani torna il sole.",
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            } else {
             Text(tr("¿Salvar tu racha?", "Save your streak?", "Salvare la tua serie?"), style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
             Text(
                 tr(
-                    "Cierra $names lo que queda de día y hoy seguirá contando. Será un día a medias: medio sol.",
-                    "Close $names for the rest of the day and today will still count. A half day: half a sun.",
-                    "Chiudi $names per il resto della giornata e oggi conterà lo stesso. Una giornata a metà: mezzo sole.",
+                    "Si no la salvas, la pierdes. Cierra $names lo que queda de día y hoy seguirá contando. Será un día a medias: medio sol.",
+                    "If you don't save it, you lose it. Close $names for the rest of the day and today will still count. A half day: half a sun.",
+                    "Se non la salvi, la perdi. Chiudi $names per il resto della giornata e oggi conterà lo stesso. Una giornata a metà: mezzo sole.",
                 ),
                 style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                tr(
+                    "Solo se puede salvar si no te pasas más de 15 minutos. Te quedan ${formatDuration(saveLeftMillis)}.",
+                    "You can only save it if you don't go over by more than 15 minutes. ${formatDuration(saveLeftMillis)} left.",
+                    "Puoi salvarla solo se non superi di più di 15 minuti. Ti restano ${formatDuration(saveLeftMillis)}.",
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
             )
             Button(
                 onClick = onSave,
                 colors = ButtonDefaults.buttonColors(containerColor = AlbaColors.Sol, contentColor = AlbaColors.Noche),
             ) { Text(tr("Cerrar $names hasta mañana", "Close $names until tomorrow", "Chiudi $names fino a domani")) }
+            }
         }
     }
 }

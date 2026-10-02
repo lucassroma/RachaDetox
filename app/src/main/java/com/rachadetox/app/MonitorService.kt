@@ -86,7 +86,7 @@ class MonitorService : Service() {
 
             // Bloqueo automático: al llegar al límite, la app se cierra hasta mañana
             if (used >= goal.limitMillis && store.autoBlockActive() && BlockerService.isEnabled(ctx) &&
-                !store.isBlockedToday(goal.pkg)
+                !store.isBlockedToday(goal.pkg) && !store.wasUnblockedToday(goal.pkg)
             ) {
                 store.blockToday(listOf(goal.pkg))
                 BlockerService.instance?.enforceNow()
@@ -103,9 +103,9 @@ class MonitorService : Service() {
                     "over", baseId + 3,
                     tr("Hoy se ha nublado", "Clouds rolled in today", "Oggi si è rannuvolato"),
                     tr(
-                        "Te has pasado con ${goal.label}. Toca aquí si quieres salvar tu racha.",
-                        "You went over on ${goal.label}. Tap here if you want to save your streak.",
-                        "Hai superato il limite con ${goal.label}. Tocca qui se vuoi salvare la tua serie.",
+                        "Te has pasado con ${goal.label}. Si no salvas tu racha, la pierdes, y pasados 15 minutos más ya no se puede. Toca aquí.",
+                        "You went over on ${goal.label}. If you don't save your streak, you lose it, and after 15 more minutes you can't. Tap here.",
+                        "Hai superato il limite con ${goal.label}. Se non salvi la tua serie, la perdi, e dopo altri 15 minuti non si può più. Tocca qui.",
                     )
                 )
 

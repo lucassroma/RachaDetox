@@ -19,13 +19,19 @@ data class StreakInfo(
     val overToday: List<Goal> = emptyList(),
     /** Días cerrados seguidos cumpliendo hasta ayer (no cuenta hoy). */
     val completed: Int = 0,
+    /** ¿Aún puedes salvar la racha? (no te has pasado más de 15 minutos en ninguna app) */
+    val canSave: Boolean = false,
+    /** Cuánto más te puedes pasar antes de que ya no se pueda salvar. */
+    val saveLeftMillis: Long = 0L,
 )
 
 /**
  * Reglas de la racha:
  * - Un día cuenta si TODAS las apps vigiladas se quedaron dentro de su límite.
  * - Los días se cierran a medianoche; la racha es el número de días cerrados seguidos cumpliendo.
- * - Si hoy te pasas de un límite, la racha vuelve a 0.
+ * - Si hoy te pasas de un límite y no salvas la racha, la pierdes.
+ * - Solo puedes salvarla si no te has pasado más de 15 minutos.
+ * - Un cambio de límite no se aplica hasta el día siguiente.
  */
 object StreakEngine {
 
@@ -45,10 +51,11 @@ object StreakEngine {
         val earliest = today.minusDays(10)
         if (day.isBefore(earliest)) day = earliest
 
-        val packages = goals.map { it.pkg }.toSet()
         while (day.isBefore(today)) {
-            val usage = UsageTracker.usageForDay(context, packages, day)
-            store.putDayResult(day, allWithinLimits(goals, usage) || store.isSaved(day))
+            // Cada día se juzga con el límite que valía ese día
+            val dayGoals = store.goals(day)
+            val usage = UsageTracker.usageForDay(context, dayGoals.map { it.pkg }.toSet(), day)
+            store.putDayResult(day, allWithinLimits(dayGoals, usage) || store.isSaved(day))
             store.setLastEvaluated(day)
             day = day.plusDays(1)
         }
@@ -74,7 +81,15 @@ object StreakEngine {
         val store = Store(context)
         val today = LocalDate.now()
         val within = allWithinLimits(goals, usageToday)
+        val overToday = goals.filter { it.isOver(usageToday[it.pkg] ?: 0L) }
+        // Salvar la racha exige tener cerradas TODAS las apps en las que te has pasado.
+        // Si desbloqueas una o te pasas con otra después de salvar, deja de estar salvada.
+        if (store.isSaved(today) && overToday.any { !store.isBlockedToday(it.pkg) }) {
+            store.unmarkSaved(today)
+        }
         val todaySaved = !within && store.isSaved(today)
+        val maxOver = overToday.maxOfOrNull { it.overBy(usageToday[it.pkg] ?: 0L) } ?: 0L
+        val saveLeft = (Goal.SAVE_WINDOW_MS - maxOver).coerceAtLeast(0L)
         val todayOk = within || todaySaved
         val completed = completedStreak(store, today)
         val current = if (todayOk) completed else 0
@@ -90,8 +105,10 @@ object StreakEngine {
         return StreakInfo(
             current, maxOf(store.bestStreak(), completed), todayOk, week,
             todaySaved = todaySaved,
-            overToday = goals.filter { it.isOver(usageToday[it.pkg] ?: 0L) },
+            overToday = overToday,
             completed = completed,
+            canSave = overToday.isNotEmpty() && maxOver <= Goal.SAVE_WINDOW_MS,
+            saveLeftMillis = saveLeft,
         )
     }
 }
