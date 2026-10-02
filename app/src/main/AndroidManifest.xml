@@ -65,6 +65,13 @@
             android:launchMode="singleTask"
             android:taskAffinity="" />
 
+        <activity
+            android:name=".GuardActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:taskAffinity="" />
+
         <service
             android:name=".BlockerService"
             android:exported="true"

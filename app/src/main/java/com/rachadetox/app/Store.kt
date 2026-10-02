@@ -35,6 +35,12 @@ data class Goal(
     }
 }
 
+/**
+ * Racha perdida del todo el día [day]: esas [pkgs] se cerraron ese día. Si al día siguiente
+ * no las abres, la racha de [streak] días se recupera. [forfeited]: las abriste, ya no se puede.
+ */
+data class Recovery(val day: LocalDate, val pkgs: Set<String>, val streak: Int, val forfeited: Boolean = false)
+
 /** Guarda todo en el propio móvil (SharedPreferences). Nada sale del teléfono. */
 class Store(context: Context) {
 
@@ -223,6 +229,44 @@ class Store(context: Context) {
     fun wasUnblockedToday(pkg: String): Boolean =
         prefs.getStringSet(KEY_UNBLOCKED, emptySet())?.contains("${LocalDate.now()}|$pkg") == true
 
+    // ---------- Segunda oportunidad tras perder la racha del todo ----------
+
+    fun recovery(): Recovery? {
+        val raw = prefs.getString(KEY_RECOVERY, null) ?: return null
+        return try {
+            val o = JSONObject(raw)
+            val arr = o.getJSONArray("pkgs")
+            Recovery(
+                LocalDate.parse(o.getString("day")),
+                (0 until arr.length()).map { arr.getString(it) }.toSet(),
+                o.getInt("streak"),
+                o.optBoolean("forfeited", false),
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun setRecovery(r: Recovery) {
+        val o = JSONObject()
+            .put("day", r.day.toString())
+            .put("pkgs", JSONArray(r.pkgs.toList()))
+            .put("streak", r.streak)
+            .put("forfeited", r.forfeited)
+        prefs.edit().putString(KEY_RECOVERY, o.toString()).apply()
+    }
+
+    /** Has abierto una app cerrada: esta racha ya no se puede recuperar. */
+    fun forfeitRecovery() {
+        recovery()?.let { setRecovery(it.copy(forfeited = true)) }
+    }
+
+    /** Hoy es el día de prueba y esta app es una de las que no debes abrir. */
+    fun isGuardedToday(pkg: String): Boolean {
+        val r = recovery() ?: return false
+        return !r.forfeited && r.day == LocalDate.now().minusDays(1) && pkg in r.pkgs
+    }
+
     /** Días en los que te pasaste pero aceptaste el bloqueo: cuentan para la racha. */
     fun isSaved(day: LocalDate): Boolean =
         prefs.getStringSet(KEY_SAVED, emptySet())?.contains(day.toString()) == true
@@ -276,6 +320,7 @@ class Store(context: Context) {
         private const val KEY_BLOCKS = "blocks"
         private const val KEY_UNBLOCKED = "unblocked"
         private const val KEY_EXTRA = "extra_days"
+        private const val KEY_RECOVERY = "recovery"
         const val EXTRA_MINUTES = 5
         private const val KEY_REMOVED = "removed_goals"
         private const val KEY_SAVED = "saved_days"

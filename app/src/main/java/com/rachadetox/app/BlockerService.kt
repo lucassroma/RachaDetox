@@ -44,7 +44,18 @@ class BlockerService : AccessibilityService() {
     }
 
     private fun check(pkg: String) {
-        if (!Store(this).isBlockedToday(pkg)) return
+        val store = Store(this)
+        // Día de prueba tras perder la racha: antes de abrir la app, un aviso
+        if (store.isGuardedToday(pkg)) {
+            startActivity(
+                Intent(this, GuardActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    .putExtra(GuardActivity.EXTRA_PKG, pkg)
+            )
+            current = null
+            return
+        }
+        if (!store.isBlockedToday(pkg)) return
         performGlobalAction(GLOBAL_ACTION_HOME)
         startActivity(
             Intent(this, BlockActivity::class.java)

@@ -27,6 +27,8 @@ data class StreakInfo(
     val maxOverMillis: Long = 0L,
     /** Si ayer se rompió la racha, cuántos días tenía (0 si no). */
     val lostYesterday: Int = 0,
+    /** Segunda oportunidad de hoy (racha perdida hoy) o de ayer (hoy es el día de prueba). */
+    val recovery: Recovery? = null,
 )
 
 /**
@@ -36,6 +38,8 @@ data class StreakInfo(
  * - Si hoy te pasas de un límite y no salvas la racha, la pierdes.
  * - Solo puedes salvarla si no te has pasado más de 15 minutos.
  * - Un cambio de límite no se aplica hasta el día siguiente.
+ * - Si la pierdes del todo, esas apps se cierran ese día; si al día siguiente no las abres,
+ *   la racha se recupera.
  */
 object StreakEngine {
 
@@ -56,6 +60,18 @@ object StreakEngine {
         if (day.isBefore(earliest)) day = earliest
 
         while (day.isBefore(today)) {
+            // Segunda oportunidad: si el día después de perderla no abriste las apps cerradas,
+            // el día perdido pasa a contar como salvado y la racha vuelve
+            val r = store.recovery()
+            if (r != null && !r.forfeited && r.day == day.minusDays(1)) {
+                val used = UsageTracker.usageForDay(context, r.pkgs, day).values.sum()
+                if (used <= Goal.GRACE_MS) {
+                    store.markSaved(r.day)
+                    store.putDayResult(r.day, true)
+                } else {
+                    store.forfeitRecovery()
+                }
+            }
             // Cada día se juzga con el límite que valía ese día
             val dayGoals = store.goals(day)
             val usage = UsageTracker.usageForDay(context, dayGoals.map { it.pkg }.toSet(), day)
@@ -66,6 +82,27 @@ object StreakEngine {
 
         val streak = completedStreak(store, today)
         if (streak > store.bestStreak()) store.setBestStreak(streak)
+    }
+
+    /**
+     * Racha perdida del todo (más de 15 minutos de más): se cierran hasta mañana las apps en
+     * las que te has pasado y se apunta la segunda oportunidad para mañana.
+     */
+    fun applyTotalLoss(context: Context, info: StreakInfo) {
+        if (info.todayOk || info.canSave || info.completed < 1 || info.overToday.isEmpty()) return
+        val store = Store(context)
+        val today = LocalDate.now()
+        val previous = store.recovery()?.takeIf { it.day == today }
+        if (previous?.forfeited == true) return
+        val pkgs = info.overToday.map { it.pkg }.toSet() + previous?.pkgs.orEmpty()
+        if (previous == null || pkgs != previous.pkgs) {
+            store.setRecovery(Recovery(today, pkgs, info.completed))
+        }
+        val toBlock = pkgs.filter { !store.isBlockedToday(it) && !store.wasUnblockedToday(it) }
+        if (toBlock.isNotEmpty()) {
+            store.blockToday(toBlock)
+            BlockerService.instance?.enforceNow()
+        }
     }
 
     fun allWithinLimits(goals: List<Goal>, usage: Map<String, Long>): Boolean =
@@ -119,6 +156,7 @@ object StreakEngine {
             saveLeftMillis = saveLeft,
             maxOverMillis = maxOver,
             lostYesterday = lostYesterday,
+            recovery = store.recovery()?.takeIf { it.day == today || it.day == yesterday },
         )
     }
 }

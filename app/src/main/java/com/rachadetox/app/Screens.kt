@@ -189,7 +189,7 @@ fun MainScreen(resumeTick: Int) {
     var streakAnim by remember { mutableStateOf<StreakAnim?>(null) }
     var streakAnimDay by remember { mutableStateOf(LocalDate.now()) }
     val autoState = remember(resumeTick, refresh) { store.autoBlockActive() to store.autoBlockTurningOff() }
-    val blockedToday = remember(resumeTick, refresh) { store.blockedTodayPackages().toSet() }
+    val blockedToday = remember(resumeTick, refresh, info) { store.blockedTodayPackages().toSet() }
     val extraUsed = remember(resumeTick, refresh, info) { store.extraUsed(LocalDate.now()) }
 
     fun useExtra() {
@@ -264,7 +264,9 @@ fun MainScreen(resumeTick: Int) {
             val result = withContext(Dispatchers.Default) {
                 StreakEngine.evaluatePastDays(context)
                 val todayUsage = UsageTracker.usageToday(context, goals.map { it.pkg }.toSet())
-                todayUsage to StreakEngine.info(context, goals, todayUsage)
+                val todayInfo = StreakEngine.info(context, goals, todayUsage)
+                StreakEngine.applyTotalLoss(context, todayInfo)
+                todayUsage to todayInfo
             }
             usage = result.first
             info = result.second
@@ -358,7 +360,11 @@ fun MainScreen(resumeTick: Int) {
             item { StreakCard(info, hasGoals = goals.isNotEmpty()) }
 
             val over = info?.overToday.orEmpty()
-            if (over.isNotEmpty() && info?.todaySaved != true) {
+            val recovery = info?.recovery
+            if (recovery != null) {
+                val names = recovery.pkgs.map { pkg -> goals.firstOrNull { it.pkg == pkg }?.label ?: pkg }
+                item { RecoveryCard(recovery, names, isTrialDay = recovery.day != LocalDate.now()) }
+            } else if (over.isNotEmpty() && info?.todaySaved != true) {
                 item { SaveStreakCard(over, info?.canSave == true, info?.saveLeftMillis ?: 0L) { request("save") } }
             }
 
@@ -463,11 +469,15 @@ fun MainScreen(resumeTick: Int) {
     }
 
     unblocking?.let { goal ->
+        val rec = info?.recovery
+        val breaksRecovery = rec != null && !rec.forfeited && rec.day == LocalDate.now() && goal.pkg in rec.pkgs
         UnblockDialog(
             goal = goal,
             isOver = goal.isOver(usage[goal.pkg] ?: 0L),
+            breaksRecovery = breaksRecovery,
             onDismiss = { unblocking = null },
             onConfirm = {
+                if (breaksRecovery) store.forfeitRecovery()
                 store.unblockToday(goal.pkg)
                 unblocking = null
                 refresh++
@@ -680,14 +690,18 @@ fun GoalCard(goal: Goal, used: Long, blocked: Boolean = false, onUnblock: () -> 
 }
 
 @Composable
-fun UnblockDialog(goal: Goal, isOver: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+fun UnblockDialog(goal: Goal, isOver: Boolean, breaksRecovery: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { AppIcon(goal.pkg, 48.dp) },
         title = { Text(tr("¿Desbloquear ${goal.label}?", "Unblock ${goal.label}?", "Sbloccare ${goal.label}?")) },
         text = {
             Text(
-                if (isOver) tr(
+                if (breaksRecovery) tr(
+                    "¿Seguro que quieres seguir? No podrás recuperar tu racha.",
+                    "Are you sure you want to continue? You won't be able to get your streak back.",
+                    "Sei sicuro di voler continuare? Non potrai recuperare la tua serie.",
+                ) else if (isOver) tr(
                     "Hoy te has pasado con ${goal.label}. Si la desbloqueas, tu racha deja de estar salvada y la pierdes.",
                     "You went over on ${goal.label} today. If you unblock it, your streak is no longer saved and you lose it.",
                     "Oggi hai superato il limite con ${goal.label}. Se la sblocchi, la tua serie non è più salvata e la perdi.",
@@ -991,6 +1005,53 @@ fun SaveStreakCard(apps: List<Goal>, canSave: Boolean, saveLeftMillis: Long, onS
                 onClick = onSave,
                 colors = ButtonDefaults.buttonColors(containerColor = AlbaColors.Sol, contentColor = AlbaColors.Noche),
             ) { Text(tr("Cerrar $names hasta mañana", "Close $names until tomorrow", "Chiudi $names fino a domani")) }
+            }
+        }
+    }
+}
+
+/** Segunda oportunidad: el día de la pérdida y el día de prueba. */
+@Composable
+fun RecoveryCard(recovery: Recovery, names: List<String>, isTrialDay: Boolean) {
+    val apps = names.joinToString(tr(" y ", " and ", " e "))
+    val n = recovery.streak
+    val (title, body) = when {
+        recovery.forfeited -> Pair(
+            tr("Racha perdida", "Streak lost", "Serie persa"),
+            tr(
+                "Has abierto $apps: tu racha de $n ${dias(n)} ya no se puede recuperar. Mañana vuelve a salir el sol.",
+                "You opened $apps: your streak of $n ${dias(n)} can't be recovered anymore. Tomorrow the sun rises again.",
+                "Hai aperto $apps: la tua serie di $n ${dias(n)} non si può più recuperare. Domani torna il sole.",
+            ),
+        )
+        isTrialDay -> Pair(
+            tr("Recupera tu racha", "Get your streak back", "Recupera la tua serie"),
+            tr(
+                "Hoy no abras $apps. Si llegas a medianoche sin abrirlas, recuperas tu racha de $n ${dias(n)}.",
+                "Don't open $apps today. If you reach midnight without opening them, you get your streak of $n ${dias(n)} back.",
+                "Oggi non aprire $apps. Se arrivi a mezzanotte senza aprirle, recuperi la tua serie di $n ${dias(n)}.",
+            ),
+        )
+        else -> Pair(
+            tr("Racha perdida… por ahora", "Streak lost… for now", "Serie persa… per ora"),
+            tr(
+                "Te has pasado más de 15 minutos y $apps se han cerrado hasta mañana. Si mañana tampoco las abres, recuperas tu racha de $n ${dias(n)}.",
+                "You went over by more than 15 minutes and $apps are closed until tomorrow. If you don't open them tomorrow either, you get your streak of $n ${dias(n)} back.",
+                "Hai superato di più di 15 minuti e $apps sono chiuse fino a domani. Se domani non le apri, recuperi la tua serie di $n ${dias(n)}.",
+            ),
+        )
+    }
+    Card(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = AlbaColors.Noche, contentColor = AlbaColors.Arena),
+    ) {
+        Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+            LockDayIcon(Modifier.size(56.dp))
+            Spacer(Modifier.width(14.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(title, style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
+                Text(body, style = MaterialTheme.typography.bodyMedium)
             }
         }
     }

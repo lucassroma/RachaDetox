@@ -68,6 +68,7 @@ class MonitorService : Service() {
         StreakEngine.evaluatePastDays(ctx)
         val usage = UsageTracker.usageToday(ctx, goals.map { it.pkg }.toSet())
         val info = StreakEngine.info(ctx, goals, usage)
+        StreakEngine.applyTotalLoss(ctx, info)
         val today = LocalDate.now().toString()
         store.pruneAlerts(today)
 
@@ -155,9 +156,9 @@ class MonitorService : Service() {
                     "lost",
                     tr("Racha perdida", "Streak lost", "Serie persa"),
                     tr(
-                        "Te has pasado más de 15 minutos. Tu racha de ${info.completed} ${dias(info.completed)} se ha roto.",
-                        "You went over by more than 15 minutes. Your streak of ${info.completed} ${dias(info.completed)} is over.",
-                        "Hai superato di più di 15 minuti. La tua serie di ${info.completed} ${dias(info.completed)} è finita.",
+                        "Te has pasado más de 15 minutos y he cerrado esas apps hasta mañana. Si mañana no las abres, recuperas tu racha de ${info.completed} ${dias(info.completed)}.",
+                        "You went over by more than 15 minutes, so I've closed those apps until tomorrow. If you don't open them tomorrow, you get your streak of ${info.completed} ${dias(info.completed)} back.",
+                        "Hai superato di più di 15 minuti e ho chiuso quelle app fino a domani. Se domani non le apri, recuperi la tua serie di ${info.completed} ${dias(info.completed)}.",
                     ),
                 )
                 left <= 2 * 60_000L -> saveAlert("2", title, leftText())

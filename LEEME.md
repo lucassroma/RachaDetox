@@ -11,6 +11,7 @@ App Android: elige cuánto tiempo al día le das a cada app y construye una rach
 - Si cambias el límite de una app, el cambio no se aplica hasta el día siguiente.
 - Si te pasas y no la salvas, el fondo se va oscureciendo hacia gris según te acercas a los 15 minutos, y Alba te avisa (a 10, 5 y 2 minutos del final). Con la racha salvada el fondo es gris muy claro. Al día siguiente vuelve el de siempre.
 - Si pierdes la racha, al entrar verás tus días bajando hasta cero.
+- Si la pierdes del todo, las apps en las que te has pasado se cierran ese día. Si al día siguiente no las abres, recuperas la racha; si intentas abrirlas, Alba te pregunta: «¿Seguro que quieres seguir? No podrás recuperar tu racha».
 - «Cinco minutos más, por favor»: una vez al día, 5 minutos más ese día para todas las apps.
 - Avisos: al 80 % del límite, cuando queda 1 minuto y si te pasas.
 - Todo se guarda en el móvil; no hay servidor ni cuentas.
