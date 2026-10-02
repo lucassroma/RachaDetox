@@ -260,7 +260,7 @@ fun StreakCardDecoration(bright: Boolean, ink: Color, modifier: Modifier = Modif
 // "lost_total": clave nueva para que no la bloquee la marca de la antigua animación de nube
 enum class StreakAnimKind(val key: String) { Rise("rise"), Lost("lost_total"), Saved("saved") }
 
-data class StreakAnim(val kind: StreakAnimKind, val days: Int)
+data class StreakAnim(val kind: StreakAnimKind, val days: Int, val recoverable: Boolean = false)
 
 private const val ANIM_MS = 3600
 
@@ -314,7 +314,11 @@ fun StreakAnimationOverlay(anim: StreakAnim, onDone: () -> Unit) {
             )
             StreakAnimKind.Lost -> Pair(
                 tr("Racha perdida", "Streak lost", "Serie persa"),
-                tr(
+                if (anim.recoverable) tr(
+                    "Pero queda guardada: si pasas un día entero sin abrir esas apps, tus ${anim.days} ${dias(anim.days)} vuelven.",
+                    "But it's kept: if you go a whole day without opening those apps, your ${anim.days} ${dias(anim.days)} come back.",
+                    "Ma resta custodita: se passi un giorno intero senza aprire quelle app, i tuoi ${anim.days} ${dias(anim.days)} tornano.",
+                ) else tr(
                     "Tu racha de ${anim.days} ${dias(anim.days)} se ha roto. El sol siempre vuelve a salir.",
                     "Your streak of ${anim.days} ${dias(anim.days)} is over. The sun always rises again.",
                     "La tua serie di ${anim.days} ${dias(anim.days)} è finita. Il sole torna sempre.",

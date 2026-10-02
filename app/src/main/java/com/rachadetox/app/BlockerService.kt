@@ -86,6 +86,8 @@ class BlockerService : AccessibilityService() {
             return
         }
         if (!store.isBlockedToday(pkg)) return
+        // «Cinco minutos más»: mientras queden minutos de regalo, la app se puede usar
+        if (UsageTracker.extraLeftToday(this, pkg) > 0L) return
         performGlobalAction(GLOBAL_ACTION_HOME)
         startActivity(
             Intent(this, BlockActivity::class.java)

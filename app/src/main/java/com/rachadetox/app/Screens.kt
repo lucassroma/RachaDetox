@@ -175,6 +175,7 @@ fun MainScreen(resumeTick: Int) {
     var goals by remember { mutableStateOf(store.goals()) }
     var usage by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
     var info by remember { mutableStateOf<StreakInfo?>(null) }
+    var extraLeft by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
     var showPicker by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Goal?>(null) }
     var editingIsNew by remember { mutableStateOf(false) }
@@ -194,13 +195,11 @@ fun MainScreen(resumeTick: Int) {
     val blockerStuck = remember(resumeTick, refresh, info) { BlockerService.isEnabled(context) && BlockerService.instance == null }
     val extraUsed = remember(resumeTick, refresh, info) { store.extraUsed(LocalDate.now()) }
 
+    // 5 minutos de regalo en cada app desde ahora, aunque te hayas pasado o esté cerrada:
+    // mientras duren no cuentan y Alba no la cierra; al acabarse, todo sigue como estaba.
     fun useExtra() {
-        if (!store.useExtra()) return
-        goals = store.goals()
-        // Las apps cerradas que con los 5 minutos vuelven a tener tiempo se abren;
-        // el bloqueo automático las cerrará otra vez cuando se acaben.
-        goals.filter { it.pkg in blockedToday && (usage[it.pkg] ?: 0L) < it.limitMillis }
-            .forEach { store.unblockToday(it.pkg, manual = false) }
+        val rawNow = UsageTracker.usageToday(context, goals.map { it.pkg }.toSet())
+        if (!store.useExtra(rawNow)) return
         refresh++
     }
 
@@ -265,9 +264,12 @@ fun MainScreen(resumeTick: Int) {
             }
             val result = withContext(Dispatchers.Default) {
                 StreakEngine.evaluatePastDays(context)
-                val todayUsage = UsageTracker.usageToday(context, goals.map { it.pkg }.toSet())
+                val todayUsage = UsageTracker.countedToday(context, goals.map { it.pkg }.toSet())
                 val todayInfo = StreakEngine.info(context, goals, todayUsage)
                 StreakEngine.applyTotalLoss(context, todayInfo)
+                extraLeft = if (store.extraUsed(LocalDate.now())) {
+                    goals.associate { it.pkg to UsageTracker.extraLeftToday(context, it.pkg) }
+                } else emptyMap()
                 todayUsage to todayInfo
             }
             usage = result.first
@@ -291,9 +293,9 @@ fun MainScreen(resumeTick: Int) {
         val (anim, day) = when {
             i.lostYesterday >= 1 && !store.animShown(StreakAnimKind.Lost.key, yesterday) &&
                 !store.animShown(StreakAnimKind.Lost.key, today) ->
-                StreakAnim(StreakAnimKind.Lost, i.lostYesterday) to yesterday
+                StreakAnim(StreakAnimKind.Lost, i.lostYesterday, recoverable = i.recovery?.forfeited == false) to yesterday
             i.todaySaved -> StreakAnim(StreakAnimKind.Saved, i.completed) to today
-            !i.todayOk -> (if (i.completed >= 1 && !i.canSave) StreakAnim(StreakAnimKind.Lost, i.completed) else null) to today
+            !i.todayOk -> (if (i.completed >= 1 && !i.canSave) StreakAnim(StreakAnimKind.Lost, i.completed, recoverable = i.recovery?.forfeited == false) else null) to today
             i.current >= 1 -> StreakAnim(StreakAnimKind.Rise, i.current) to today
             else -> null to today
         }
@@ -416,6 +418,7 @@ fun MainScreen(resumeTick: Int) {
                 GoalCard(
                     goal, usage[goal.pkg] ?: 0L,
                     blocked = goal.pkg in blockedToday,
+                    extraLeftMs = extraLeft[goal.pkg] ?: 0L,
                     onUnblock = { unblocking = goal },
                 ) {
                     editingIsNew = false
@@ -517,8 +520,11 @@ fun MainScreen(resumeTick: Int) {
 
 @Composable
 fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
-    val current = info?.current ?: 0
-    val cloudy = hasGoals && info?.todayOk == false
+    // Racha guardada: perdida, pero se recupera si el día siguiente no abres esas apps
+    val kept = info?.recovery?.takeIf { !it.forfeited && hasGoals }
+    val keptIsTrialDay = kept != null && kept.day != LocalDate.now()
+    val current = kept?.streak ?: info?.current ?: 0
+    val cloudy = hasGoals && (info?.todayOk == false || kept != null)
     val bright = hasGoals && !cloudy && current > 0
     val container = if (bright) AlbaColors.Sol else MaterialTheme.colorScheme.surfaceVariant
     val content = if (bright) AlbaColors.Noche else MaterialTheme.colorScheme.onSurface
@@ -526,6 +532,16 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
     val message = when {
         !hasGoals -> tr("Elige una app y cuánto tiempo al día quieres darle.", "Choose an app and how much time a day you want to give it.", "Scegli un'app e quanto tempo al giorno vuoi darle.")
         info == null -> "…"
+        kept != null && keptIsTrialDay -> tr(
+            "Hoy no abras las apps que se cerraron ayer y a medianoche tu racha vuelve.",
+            "Don't open the apps that were closed yesterday and your streak comes back at midnight.",
+            "Oggi non aprire le app chiuse ieri e a mezzanotte la tua serie torna.",
+        )
+        kept != null -> tr(
+            "Si mañana no abres las apps que se han cerrado, tu racha vuelve.",
+            "If you don't open the closed apps tomorrow, your streak comes back.",
+            "Se domani non apri le app chiuse, la tua serie torna.",
+        )
         cloudy -> tr("Hoy se ha nublado. Mañana vuelve a salir el sol.", "Clouds rolled in today. Tomorrow the sun rises again.", "Oggi si è rannuvolato. Domani torna il sole.")
         info.todaySaved -> tr("Día salvado. Medio sol, pero sol.", "Day saved. Half a sun, but still a sun.", "Giornata salvata. Mezzo sole, ma pur sempre sole.")
         else -> tr("Aguanta hasta medianoche y mañana serán ${current + 1}.", "Hold on until midnight and tomorrow it will be ${current + 1}.", "Resisti fino a mezzanotte e domani saranno ${current + 1}.")
@@ -544,18 +560,29 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Image(
-                painterResource(R.drawable.ic_sun),
-                contentDescription = null,
-                modifier = Modifier
-                    .size(64.dp)
-                    .alpha(if (cloudy) 0.35f else 1f),
-            )
+            if (kept != null) {
+                LockDayIcon(Modifier.size(64.dp))
+            } else {
+                Image(
+                    painterResource(R.drawable.ic_sun),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(64.dp)
+                        .alpha(if (cloudy) 0.35f else 1f),
+                )
+            }
             Text("$current", fontSize = 64.sp, lineHeight = 68.sp, fontFamily = FontFamily.Serif)
             Text(
                 if (current == 1) tr("día seguido", "day in a row", "giorno di fila") else tr("días seguidos", "days in a row", "giorni di fila"),
                 style = MaterialTheme.typography.titleMedium,
             )
+            if (kept != null) {
+                Text(
+                    tr("Racha guardada", "Streak kept", "Serie custodita"),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
             Spacer(Modifier.height(10.dp))
             Text(message, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
             if (info != null && info.best > 0) {
@@ -633,7 +660,14 @@ private fun DayDot(day: DayStatus) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GoalCard(goal: Goal, used: Long, blocked: Boolean = false, onUnblock: () -> Unit = {}, onClick: () -> Unit) {
+fun GoalCard(
+    goal: Goal,
+    used: Long,
+    blocked: Boolean = false,
+    extraLeftMs: Long = 0L,
+    onUnblock: () -> Unit = {},
+    onClick: () -> Unit,
+) {
     val fraction = (used.toFloat() / goal.limitMillis).coerceIn(0f, 1f)
     val over = goal.isOver(used)
     val barColor = when {
@@ -642,6 +676,8 @@ fun GoalCard(goal: Goal, used: Long, blocked: Boolean = false, onUnblock: () -> 
         else -> Green
     }
     val status = when {
+        extraLeftMs > 0L && (blocked || over) ->
+            tr("Minutos de regalo: te quedan ", "Bonus minutes: ", "Minuti regalo: ti restano ") + formatDuration(extraLeftMs)
         blocked -> tr("Cerrada hasta mañana", "Closed until tomorrow", "Chiusa fino a domani")
         over -> tr("Hoy te has pasado ", "Over by ", "Oggi hai sforato di ") + formatDuration(used - goal.limitMillis)
         goal.limitMillis - used < 60_000L -> tr("Te queda menos de 1 min", "Less than 1 min left", "Ti resta meno di 1 min")
@@ -663,7 +699,7 @@ fun GoalCard(goal: Goal, used: Long, blocked: Boolean = false, onUnblock: () -> 
                         modifier = Modifier.weight(1f),
                     )
                     Text(
-                        "${formatDuration(used)} / ${formatMinutes(goal.todayMinutes)}",
+                        "${formatDuration(used)} / ${formatMinutes(goal.limitMinutes)}",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1077,7 +1113,7 @@ fun RecoveryCard(recovery: Recovery, names: List<String>, isTrialDay: Boolean) {
             ),
         )
         else -> Pair(
-            tr("Racha perdida… por ahora", "Streak lost… for now", "Serie persa… per ora"),
+            tr("Racha guardada", "Streak kept", "Serie custodita"),
             tr(
                 "Te has pasado más de 15 minutos y $apps se han cerrado hasta mañana. Si mañana tampoco las abres, recuperas tu racha de $n ${dias(n)}.",
                 "You went over by more than 15 minutes and $apps are closed until tomorrow. If you don't open them tomorrow either, you get your streak of $n ${dias(n)} back.",
@@ -1114,13 +1150,13 @@ fun ExtraMinutesCard(used: Boolean, onUse: () -> Unit) {
                 Spacer(Modifier.height(4.dp))
                 Text(
                     if (used) tr(
-                        "Ya los has usado hoy: todas tus apps tienen 5 minutos más. Mañana vuelves a tenerlos.",
-                        "Already used today: all your apps have 5 more minutes. You'll have them again tomorrow.",
-                        "Già usati oggi: tutte le tue app hanno 5 minuti in più. Domani li avrai di nuovo.",
+                        "Ya los has usado hoy: cada app tiene 5 minutos de regalo desde que lo pulsaste, aunque te hubieras pasado. Mañana vuelves a tenerlos.",
+                        "Already used today: each app gets 5 bonus minutes from when you tapped it, even if you were over. You'll have them again tomorrow.",
+                        "Già usati oggi: ogni app ha 5 minuti regalo da quando l'hai toccato, anche se avevi sforato. Domani li avrai di nuovo.",
                     ) else tr(
-                        "Una vez al día: 5 minutos más hoy para todas tus apps.",
-                        "Once a day: 5 more minutes today for all your apps.",
-                        "Una volta al giorno: 5 minuti in più oggi per tutte le tue app.",
+                        "Una vez al día: 5 minutos más de uso en cada app, aunque ya te hayas pasado o esté cerrada. No cuentan para el límite.",
+                        "Once a day: 5 more minutes of use in each app, even if you are over or it is closed. They don't count towards the limit.",
+                        "Una volta al giorno: 5 minuti in più di uso in ogni app, anche se hai sforato o è chiusa. Non contano per il limite.",
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

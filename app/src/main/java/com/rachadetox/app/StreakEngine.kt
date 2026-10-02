@@ -74,7 +74,7 @@ object StreakEngine {
             }
             // Cada día se juzga con el límite que valía ese día
             val dayGoals = store.goals(day)
-            val usage = UsageTracker.usageForDay(context, dayGoals.map { it.pkg }.toSet(), day)
+            val usage = UsageTracker.countedForDay(context, dayGoals.map { it.pkg }.toSet(), day)
             store.putDayResult(day, allWithinLimits(dayGoals, usage) || store.isSaved(day))
             store.setLastEvaluated(day)
             day = day.plusDays(1)
@@ -90,7 +90,7 @@ object StreakEngine {
         val goals = Store(context).goals()
         if (goals.isEmpty()) return null
         evaluatePastDays(context)
-        val usage = UsageTracker.usageToday(context, goals.map { it.pkg }.toSet())
+        val usage = UsageTracker.countedToday(context, goals.map { it.pkg }.toSet())
         val info = info(context, goals, usage)
         applyTotalLoss(context, info)
         return info

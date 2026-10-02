@@ -66,7 +66,7 @@ class MonitorService : Service() {
         if (goals.isEmpty()) return false
 
         StreakEngine.evaluatePastDays(ctx)
-        val usage = UsageTracker.usageToday(ctx, goals.map { it.pkg }.toSet())
+        val usage = UsageTracker.countedToday(ctx, goals.map { it.pkg }.toSet())
         val info = StreakEngine.info(ctx, goals, usage)
         StreakEngine.applyTotalLoss(ctx, info)
         val today = LocalDate.now().toString()
@@ -95,7 +95,7 @@ class MonitorService : Service() {
 
             fun once(level: String, id: Int, title: String, text: String) {
                 // Con los minutos de regalo, los avisos pueden volver a salir
-                val key = "$today|${goal.pkg}|$level" + if (goal.extraMinutes > 0) "+" else ""
+                val key = "$today|${goal.pkg}|$level" + if (store.extraUsed(LocalDate.now())) "+" else ""
                 if (!store.alertSent(key)) {
                     store.markAlert(key)
                     Notifier.alert(ctx, id, title, text)
@@ -142,9 +142,9 @@ class MonitorService : Service() {
                         "Ti restano ${formatDuration(left)} di ${goal.label}",
                     ),
                     tr(
-                        "Llevas ${formatDuration(used)} de ${formatMinutes(goal.todayMinutes)} hoy.",
-                        "You have used ${formatDuration(used)} of ${formatMinutes(goal.todayMinutes)} today.",
-                        "Hai usato ${formatDuration(used)} di ${formatMinutes(goal.todayMinutes)} oggi.",
+                        "Llevas ${formatDuration(used)} de ${formatMinutes(goal.limitMinutes)} hoy.",
+                        "You have used ${formatDuration(used)} of ${formatMinutes(goal.limitMinutes)} today.",
+                        "Hai usato ${formatDuration(used)} di ${formatMinutes(goal.limitMinutes)} oggi.",
                     )
                 )
             }
@@ -186,7 +186,7 @@ class MonitorService : Service() {
         val title = if (info.todayOk) inARow(info.current)
         else tr("Hoy se ha nublado", "Clouds rolled in today", "Oggi si è rannuvolato")
         val text = goals.joinToString(" · ") {
-            "${it.label} ${formatDuration(usage[it.pkg] ?: 0L)}/${formatMinutes(it.todayMinutes)}"
+            "${it.label} ${formatDuration(usage[it.pkg] ?: 0L)}/${formatMinutes(it.limitMinutes)}"
         }
         if (title + text != lastOngoingText) {
             lastOngoingText = title + text

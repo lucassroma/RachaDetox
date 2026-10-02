@@ -14,12 +14,8 @@ data class Goal(
     val label: String,
     val limitMinutes: Int,
     val nextLimitMinutes: Int? = null,
-    /** Minutos de regalo de hoy («cinco minutos más, por favor»). */
-    val extraMinutes: Int = 0,
 ) {
-    /** Límite de hoy, contando los minutos de regalo. */
-    val todayMinutes: Int get() = limitMinutes + extraMinutes
-    val limitMillis: Long get() = todayMinutes * 60_000L
+    val limitMillis: Long get() = limitMinutes * 60_000L
 
     /** Te has pasado (con 1 minuto de margen, porque la comprobación no es instantánea). */
     fun isOver(usedMillis: Long): Boolean = usedMillis > limitMillis + GRACE_MS
@@ -72,25 +68,44 @@ class Store(context: Context) {
             o.getString("label"),
             if (nextApplies) next!! else o.getInt("limit"),
             nextLimitMinutes = if (next != null && !nextApplies) next else null,
-            extraMinutes = if (extraUsed(day)) EXTRA_MINUTES else 0,
         )
     }
 
     // ---------- «Cinco minutos más, por favor» (una vez al día) ----------
+    // No sube el límite: desde que lo pulsas, los siguientes 5 minutos de cada app son de
+    // regalo y no cuentan, aunque ya te hayas pasado o la app esté cerrada.
+    // Se guarda, por día, cuánto llevaba cada app al pulsarlo.
+
+    private fun extraWindows(): JSONObject = try {
+        JSONObject(prefs.getString(KEY_EXTRA_WINDOWS, "{}") ?: "{}")
+    } catch (_: Exception) {
+        JSONObject()
+    }
 
     fun extraUsed(day: LocalDate): Boolean =
-        prefs.getStringSet(KEY_EXTRA, emptySet())?.contains(day.toString()) == true
+        extraWindows().has(day.toString()) ||
+            prefs.getStringSet(KEY_EXTRA, emptySet())?.contains(day.toString()) == true
 
-    /** Da 5 minutos más a todas las apps hoy. Devuelve false si ya se usó hoy. */
-    fun useExtra(): Boolean {
+    /** Cuánto llevaba [pkg] el día [day] al pulsar «cinco minutos más» (null si no se pulsó). */
+    fun extraBaseline(pkg: String, day: LocalDate): Long? {
+        val o = extraWindows().optJSONObject(day.toString()) ?: return null
+        return if (o.has(pkg)) o.getLong(pkg) else null
+    }
+
+    /** Pulsa «cinco minutos más» con lo que lleva ahora cada app. Devuelve false si ya se usó hoy. */
+    fun useExtra(usedNow: Map<String, Long>): Boolean {
         val today = LocalDate.now()
         if (extraUsed(today)) return false
+        val all = extraWindows()
         // Guardamos solo los últimos días: hacen falta para cerrar los días pendientes
         val keepFrom = today.minusDays(15)
-        val set = HashSet((prefs.getStringSet(KEY_EXTRA, emptySet()) ?: emptySet())
-            .filter { !LocalDate.parse(it).isBefore(keepFrom) })
-        set.add(today.toString())
-        prefs.edit().putStringSet(KEY_EXTRA, set).apply()
+        all.keys().asSequence().toList()
+            .filter { LocalDate.parse(it).isBefore(keepFrom) }
+            .forEach { all.remove(it) }
+        val day = JSONObject()
+        usedNow.forEach { (pkg, used) -> day.put(pkg, used) }
+        all.put(today.toString(), day)
+        prefs.edit().putString(KEY_EXTRA_WINDOWS, all.toString()).apply()
         return true
     }
 
@@ -320,9 +335,9 @@ class Store(context: Context) {
         private const val KEY_BLOCKS = "blocks"
         private const val KEY_UNBLOCKED = "unblocked"
         private const val KEY_EXTRA = "extra_days"
-        private const val KEY_RECOVERY = "recovery"
-        const val EXTRA_MINUTES = 5
-        private const val KEY_REMOVED = "removed_goals"
+        private const val KEY_EXTRA_WINDOWS = "extra_windows"
+        const val EXTRA_MS = 5 * 60_000L
+        private const val KEY_RECOVERY = "recovery"        private const val KEY_REMOVED = "removed_goals"
         private const val KEY_SAVED = "saved_days"
         private const val KEY_AUTO = "auto_block"
         private const val KEY_AUTO_OFF = "auto_block_off_from"

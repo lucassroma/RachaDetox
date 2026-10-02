@@ -55,6 +55,28 @@ object UsageTracker {
     fun usageToday(context: Context, packages: Set<String>): Map<String, Long> =
         usageForDay(context, packages, LocalDate.now())
 
+    /**
+     * Uso que cuenta para los límites: el real menos los 5 minutos de regalo
+     * («cinco minutos más, por favor») que se hayan gastado ese día.
+     */
+    fun countedForDay(context: Context, packages: Set<String>, day: LocalDate): Map<String, Long> {
+        val store = Store(context)
+        return usageForDay(context, packages, day).mapValues { (pkg, used) ->
+            val base = store.extraBaseline(pkg, day) ?: return@mapValues used
+            used - (used - base).coerceIn(0L, Store.EXTRA_MS)
+        }
+    }
+
+    fun countedToday(context: Context, packages: Set<String>): Map<String, Long> =
+        countedForDay(context, packages, LocalDate.now())
+
+    /** Minutos de regalo que le quedan hoy a [pkg] (0 si no hay o ya se acabaron). */
+    fun extraLeftToday(context: Context, pkg: String): Long {
+        val base = Store(context).extraBaseline(pkg, LocalDate.now()) ?: return 0L
+        val used = usageToday(context, setOf(pkg))[pkg] ?: 0L
+        return (Store.EXTRA_MS - (used - base)).coerceAtLeast(0L)
+    }
+
     /** Milisegundos en primer plano de cada paquete entre [start] y [end]. */
     fun usage(context: Context, packages: Set<String>, start: Long, end: Long): Map<String, Long> {
         val totals = HashMap<String, Long>()

@@ -1,4 +1,4 @@
-﻿plugins {
+plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -12,8 +12,8 @@ android {
         applicationId = "com.rachadetox.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 17
-        versionName = "1.93.3"
+        versionCode = 18
+        versionName = "1.94"
     }
 
     // Firma fija: permite instalar versiones nuevas encima sin perder los datos
