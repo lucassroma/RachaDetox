@@ -69,7 +69,7 @@ object StreakEngine {
                     store.markSaved(r.day)
                     store.putDayResult(r.day, true)
                 } else {
-                    store.forfeitRecovery()
+                    forfeitRecovery(context)
                 }
             }
             // Cada día se juzga con el límite que valía ese día
@@ -83,6 +83,25 @@ object StreakEngine {
         val streak = completedStreak(store, today)
         if (streak > store.bestStreak()) store.setBestStreak(streak)
     }
+
+    /** Has entrado en una de las apps durante las 48 h: la racha guardada se pierde del todo. */
+    fun forfeitRecovery(context: Context) {
+        val store = Store(context)
+        val r = store.recovery() ?: return
+        if (r.forfeited) return
+        store.forfeitRecovery()
+        Notifier.alert(
+            context, FORFEIT_ALERT_ID,
+            tr("Has perdido tu racha", "You've lost your streak", "Hai perso la tua serie"),
+            tr(
+                "Has entrado en una app que tenías que dejar 48 h. ${streakName(r.streak).replaceFirstChar { it.uppercase() }} ya no se puede recuperar.",
+                "You opened an app you had to leave alone for 48 h. ${streakName(r.streak).replaceFirstChar { it.uppercase() }} can't be recovered anymore.",
+                "Hai aperto un'app che dovevi lasciare per 48 h. ${streakName(r.streak).replaceFirstChar { it.uppercase() }} non si può più recuperare.",
+            ),
+        )
+    }
+
+    private const val FORFEIT_ALERT_ID = 902
 
     /** Calcula cómo va hoy y aplica el bloqueo si la racha se ha perdido del todo. */
     fun refreshToday(context: Context): StreakInfo? {

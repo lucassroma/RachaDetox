@@ -293,10 +293,14 @@ class Store(context: Context) {
         recovery()?.let { setRecovery(it.copy(forfeited = true)) }
     }
 
-    /** Hoy es el día de prueba y esta app es una de las que no debes abrir. */
+    /**
+     * Racha guardada: esta app es una de las que no debes abrir durante las 48 h
+     * (el día en que la perdiste y el día de prueba).
+     */
     fun isGuardedToday(pkg: String): Boolean {
         val r = recovery() ?: return false
-        return !r.forfeited && r.day == LocalDate.now().minusDays(1) && pkg in r.pkgs
+        val today = LocalDate.now()
+        return !r.forfeited && (r.day == today || r.day == today.minusDays(1)) && pkg in r.pkgs
     }
 
     /** Días en los que te pasaste pero aceptaste el bloqueo: cuentan para la racha. */

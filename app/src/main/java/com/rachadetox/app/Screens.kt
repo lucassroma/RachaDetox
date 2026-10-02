@@ -499,7 +499,6 @@ fun MainScreen(resumeTick: Int) {
             breaksRecovery = breaksRecovery,
             onDismiss = { unblocking = null },
             onConfirm = {
-                if (breaksRecovery) store.forfeitRecovery()
                 store.unblockToday(goal.pkg)
                 unblocking = null
                 refresh++
@@ -759,9 +758,9 @@ fun UnblockDialog(goal: Goal, isOver: Boolean, breaksRecovery: Boolean, onDismis
         text = {
             Text(
                 if (breaksRecovery) tr(
-                    "¿Seguro que quieres seguir? No podrás recuperar tu racha.",
-                    "Are you sure you want to continue? You won't be able to get your streak back.",
-                    "Sei sicuro di voler continuare? Non potrai recuperare la tua serie.",
+                    "Tienes la racha guardada. Podrás desbloquearla, pero si entras en ella antes de que acaben las 48 h, perderás tu racha por completo.",
+                    "Your streak is kept. You can unblock it, but if you open it before the 48 h are over, you lose your streak completely.",
+                    "La tua serie è custodita. Puoi sbloccarla, ma se la apri prima che finiscano le 48 h, perdi la serie del tutto.",
                 ) else if (isOver) tr(
                     "Hoy te has pasado con ${goal.label}. Si la desbloqueas, tu racha deja de estar salvada y la pierdes.",
                     "You went over on ${goal.label} today. If you unblock it, your streak is no longer saved and you lose it.",

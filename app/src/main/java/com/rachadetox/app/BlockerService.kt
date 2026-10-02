@@ -75,22 +75,12 @@ class BlockerService : AccessibilityService() {
 
     private fun check(pkg: String) {
         val store = Store(this)
-        // Día de prueba tras perder la racha: antes de abrir la app, un aviso
-        if (store.isGuardedToday(pkg)) {
-            startActivity(
-                Intent(this, GuardActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    .putExtra(GuardActivity.EXTRA_PKG, pkg)
-            )
-            current = null
-            return
-        }
-        if (!store.isBlockedToday(pkg)) return
-        // «Cinco minutos más»: mientras queden minutos de regalo, la app se puede usar.
-        // Pero si es una de las que hay que no abrir para recuperar la racha, antes el aviso.
-        if (UsageTracker.extraLeftToday(this, pkg) > 0L) {
-            val r = store.recovery()
-            if (r != null && !r.forfeited && r.day == java.time.LocalDate.now() && pkg in r.pkgs) {
+        // Cerrada hoy, salvo que queden minutos de regalo («cinco minutos más»)
+        val blocked = store.isBlockedToday(pkg) && UsageTracker.extraLeftToday(this, pkg) <= 0L
+        if (!blocked) {
+            // Racha guardada (las 48 h): si se puede entrar en una de esas apps, antes un aviso.
+            // Si lo ignoras, pierdes la racha del todo.
+            if (store.isGuardedToday(pkg)) {
                 startActivity(
                     Intent(this, GuardActivity::class.java)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)

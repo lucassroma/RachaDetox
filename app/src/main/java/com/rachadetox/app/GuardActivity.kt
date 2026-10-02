@@ -70,9 +70,9 @@ class GuardActivity : ComponentActivity() {
                     Spacer(Modifier.height(14.dp))
                     Text(
                         tr(
-                            "No podrás recuperar ${streakName(streak)}.\nSi no abres $label, la recuperas.",
-                            "You won't be able to get back ${streakName(streak)}.\nIf you don't open $label, you get it back.",
-                            "Non potrai recuperare ${streakName(streak)}.\nSe non apri $label, la recuperi.",
+                            "Si entras en $label, perderás por completo ${streakName(streak)}.\nSi aguantas las 48 h sin abrirla, la recuperas.",
+                            "If you open $label, you lose ${streakName(streak)} completely.\nIf you stay away for the 48 h, you get it back.",
+                            "Se apri $label, perdi del tutto ${streakName(streak)}.\nSe resisti 48 h senza aprirla, la recuperi.",
                         ),
                         color = AlbaColors.Arena.copy(alpha = 0.85f),
                         fontSize = 18.sp,
@@ -103,7 +103,7 @@ class GuardActivity : ComponentActivity() {
     }
 
     private fun continueTo(pkg: String?) {
-        Store(this).forfeitRecovery()
+        StreakEngine.forfeitRecovery(this)
         pkg?.let { packageManager.getLaunchIntentForPackage(it) }?.let {
             startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
