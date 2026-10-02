@@ -84,7 +84,8 @@ object StreakEngine {
         val overToday = goals.filter { it.isOver(usageToday[it.pkg] ?: 0L) }
         // Salvar la racha exige tener cerradas TODAS las apps en las que te has pasado.
         // Si desbloqueas una o te pasas con otra después de salvar, deja de estar salvada.
-        if (store.isSaved(today) && overToday.any { !store.isBlockedToday(it.pkg) }) {
+        // Y si con los minutos de regalo ya no te pasas, no hace falta tenerla salvada.
+        if (store.isSaved(today) && (within || overToday.any { !store.isBlockedToday(it.pkg) })) {
             store.unmarkSaved(today)
         }
         val todaySaved = !within && store.isSaved(today)

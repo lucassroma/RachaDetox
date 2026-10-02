@@ -190,6 +190,17 @@ fun MainScreen(resumeTick: Int) {
     var streakAnimDay by remember { mutableStateOf(LocalDate.now()) }
     val autoState = remember(resumeTick, refresh) { store.autoBlockActive() to store.autoBlockTurningOff() }
     val blockedToday = remember(resumeTick, refresh) { store.blockedTodayPackages().toSet() }
+    val extraUsed = remember(resumeTick, refresh, info) { store.extraUsed(LocalDate.now()) }
+
+    fun useExtra() {
+        if (!store.useExtra()) return
+        goals = store.goals()
+        // Las apps cerradas que con los 5 minutos vuelven a tener tiempo se abren;
+        // el bloqueo automático las cerrará otra vez cuando se acaben.
+        goals.filter { it.pkg in blockedToday && (usage[it.pkg] ?: 0L) < it.limitMillis }
+            .forEach { store.unblockToday(it.pkg, manual = false) }
+        refresh++
+    }
 
     fun runAction(action: String) {
         when (action) {
@@ -335,6 +346,10 @@ fun MainScreen(resumeTick: Int) {
             val over = info?.overToday.orEmpty()
             if (over.isNotEmpty() && info?.todaySaved != true) {
                 item { SaveStreakCard(over, info?.canSave == true, info?.saveLeftMillis ?: 0L) { request("save") } }
+            }
+
+            if (goals.isNotEmpty()) {
+                item { ExtraMinutesCard(used = extraUsed, onUse = { useExtra() }) }
             }
 
             val currentInfo = info
@@ -610,7 +625,7 @@ fun GoalCard(goal: Goal, used: Long, blocked: Boolean = false, onUnblock: () -> 
                         modifier = Modifier.weight(1f),
                     )
                     Text(
-                        "${formatDuration(used)} / ${formatMinutes(goal.limitMinutes)}",
+                        "${formatDuration(used)} / ${formatMinutes(goal.todayMinutes)}",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -957,6 +972,37 @@ fun SaveStreakCard(apps: List<Goal>, canSave: Boolean, saveLeftMillis: Long, onS
                 colors = ButtonDefaults.buttonColors(containerColor = AlbaColors.Sol, contentColor = AlbaColors.Noche),
             ) { Text(tr("Cerrar $names hasta mañana", "Close $names until tomorrow", "Chiudi $names fino a domani")) }
             }
+        }
+    }
+}
+
+@Composable
+fun ExtraMinutesCard(used: Boolean, onUse: () -> Unit) {
+    OutlinedCard(Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    tr("Cinco minutos más, por favor", "Five more minutes, please", "Cinque minuti in più, per favore"),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontFamily = FontFamily.Serif,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    if (used) tr(
+                        "Ya los has usado hoy: todas tus apps tienen 5 minutos más. Mañana vuelves a tenerlos.",
+                        "Already used today: all your apps have 5 more minutes. You'll have them again tomorrow.",
+                        "Già usati oggi: tutte le tue app hanno 5 minuti in più. Domani li avrai di nuovo.",
+                    ) else tr(
+                        "Una vez al día: 5 minutos más hoy para todas tus apps.",
+                        "Once a day: 5 more minutes today for all your apps.",
+                        "Una volta al giorno: 5 minuti in più oggi per tutte le tue app.",
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Button(onClick = onUse, enabled = !used) { Text("+5 min") }
         }
     }
 }

@@ -9,6 +9,7 @@ App Android: elige cuánto tiempo al día le das a cada app y construye una rach
 - Para salvarla cierras hasta mañana las apps en las que te has pasado. Solo se puede si no te has pasado más de 15 minutos.
 - Una app bloqueada se puede desbloquear; si te habías pasado con ella, la racha deja de estar salvada.
 - Si cambias el límite de una app, el cambio no se aplica hasta el día siguiente.
+- «Cinco minutos más, por favor»: una vez al día, 5 minutos más ese día para todas las apps.
 - Avisos: al 80 % del límite, cuando queda 1 minuto y si te pasas.
 - Todo se guarda en el móvil; no hay servidor ni cuentas.
 

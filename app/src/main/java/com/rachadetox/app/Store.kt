@@ -9,8 +9,17 @@ import java.time.LocalDate
  * Una app vigilada y su límite diario.
  * [nextLimitMinutes]: límite nuevo que se ha pedido y que empieza a contar mañana.
  */
-data class Goal(val pkg: String, val label: String, val limitMinutes: Int, val nextLimitMinutes: Int? = null) {
-    val limitMillis: Long get() = limitMinutes * 60_000L
+data class Goal(
+    val pkg: String,
+    val label: String,
+    val limitMinutes: Int,
+    val nextLimitMinutes: Int? = null,
+    /** Minutos de regalo de hoy («cinco minutos más, por favor»). */
+    val extraMinutes: Int = 0,
+) {
+    /** Límite de hoy, contando los minutos de regalo. */
+    val todayMinutes: Int get() = limitMinutes + extraMinutes
+    val limitMillis: Long get() = todayMinutes * 60_000L
 
     /** Te has pasado (con 1 minuto de margen, porque la comprobación no es instantánea). */
     fun isOver(usedMillis: Long): Boolean = usedMillis > limitMillis + GRACE_MS
@@ -57,7 +66,26 @@ class Store(context: Context) {
             o.getString("label"),
             if (nextApplies) next!! else o.getInt("limit"),
             nextLimitMinutes = if (next != null && !nextApplies) next else null,
+            extraMinutes = if (extraUsed(day)) EXTRA_MINUTES else 0,
         )
+    }
+
+    // ---------- «Cinco minutos más, por favor» (una vez al día) ----------
+
+    fun extraUsed(day: LocalDate): Boolean =
+        prefs.getStringSet(KEY_EXTRA, emptySet())?.contains(day.toString()) == true
+
+    /** Da 5 minutos más a todas las apps hoy. Devuelve false si ya se usó hoy. */
+    fun useExtra(): Boolean {
+        val today = LocalDate.now()
+        if (extraUsed(today)) return false
+        // Guardamos solo los últimos días: hacen falta para cerrar los días pendientes
+        val keepFrom = today.minusDays(15)
+        val set = HashSet((prefs.getStringSet(KEY_EXTRA, emptySet()) ?: emptySet())
+            .filter { !LocalDate.parse(it).isBefore(keepFrom) })
+        set.add(today.toString())
+        prefs.edit().putStringSet(KEY_EXTRA, set).apply()
+        return true
     }
 
     /** Añade una app nueva. Si la quitaste hoy, vuelve con el límite que tenía y el nuevo vale desde mañana. */
@@ -175,14 +203,21 @@ class Store(context: Context) {
             .map { it.removePrefix(prefix) }
     }
 
-    /** Desbloquea una app por hoy. El bloqueo automático ya no la vuelve a cerrar hoy. */
-    fun unblockToday(pkg: String) {
+    /**
+     * Desbloquea una app por hoy. Si lo haces tú ([manual]), el bloqueo automático ya no la
+     * vuelve a cerrar hoy; si es por los minutos de regalo, la cerrará cuando se acaben.
+     */
+    fun unblockToday(pkg: String, manual: Boolean = true) {
         val today = LocalDate.now().toString()
         val blocks = HashSet((prefs.getStringSet(KEY_BLOCKS, emptySet()) ?: emptySet()).filter { it.startsWith(today) })
         blocks.remove("$today|$pkg")
-        val unblocked = HashSet((prefs.getStringSet(KEY_UNBLOCKED, emptySet()) ?: emptySet()).filter { it.startsWith(today) })
-        unblocked.add("$today|$pkg")
-        prefs.edit().putStringSet(KEY_BLOCKS, blocks).putStringSet(KEY_UNBLOCKED, unblocked).apply()
+        val edit = prefs.edit().putStringSet(KEY_BLOCKS, blocks)
+        if (manual) {
+            val unblocked = HashSet((prefs.getStringSet(KEY_UNBLOCKED, emptySet()) ?: emptySet()).filter { it.startsWith(today) })
+            unblocked.add("$today|$pkg")
+            edit.putStringSet(KEY_UNBLOCKED, unblocked)
+        }
+        edit.apply()
     }
 
     fun wasUnblockedToday(pkg: String): Boolean =
@@ -240,6 +275,8 @@ class Store(context: Context) {
 
         private const val KEY_BLOCKS = "blocks"
         private const val KEY_UNBLOCKED = "unblocked"
+        private const val KEY_EXTRA = "extra_days"
+        const val EXTRA_MINUTES = 5
         private const val KEY_REMOVED = "removed_goals"
         private const val KEY_SAVED = "saved_days"
         private const val KEY_AUTO = "auto_block"
