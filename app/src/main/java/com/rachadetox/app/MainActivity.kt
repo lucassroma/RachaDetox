@@ -8,9 +8,16 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 
 class MainActivity : ComponentActivity() {
 
@@ -45,9 +52,34 @@ object AlbaColors {
     val ArenaOscura = Color(0xFFEDE4D6)
 }
 
+/**
+ * Cómo va el día, para teñir el fondo de la app:
+ * - [cloud] de 0 a 1: cuánto te has pasado sin salvar (1 = 15 minutos, racha perdida).
+ * - [saved]: hoy la racha está salvada (gris muy claro).
+ * Al día siguiente vuelve solo a la normalidad, porque se calcula con los datos de hoy.
+ */
+object DayMood {
+    var cloud by mutableFloatStateOf(0f)
+    var saved by mutableStateOf(false)
+}
+
+// Gris "día nublado": frío y un poco lavanda para casar con la paleta amanecer
+private val CloudyGray = Color(0xFFA7A5AE)
+private val SavedGray = Color(0xFFE8E6E3)
+private val CloudyNight = Color(0xFF2C2C33)
+private val SavedNight = Color(0xFF25273F)
+
 @Composable
 fun AlbaTheme(content: @Composable () -> Unit) {
-    val scheme = if (isSystemInDarkTheme()) {
+    val dark = isSystemInDarkTheme()
+    val normal = if (dark) AlbaColors.Noche else AlbaColors.Arena
+    val target = when {
+        DayMood.cloud > 0f -> lerp(normal, if (dark) CloudyNight else CloudyGray, DayMood.cloud.coerceIn(0f, 1f))
+        DayMood.saved -> if (dark) SavedNight else SavedGray
+        else -> normal
+    }
+    val background by animateColorAsState(target, tween(1200), label = "dayMood")
+    val scheme = if (dark) {
         darkColorScheme(
             primary = AlbaColors.Sol,
             onPrimary = AlbaColors.Noche,
@@ -100,5 +132,5 @@ fun AlbaTheme(content: @Composable () -> Unit) {
             error = Color(0xFFB5654A),
         )
     }
-    MaterialTheme(colorScheme = scheme, content = content)
+    MaterialTheme(colorScheme = scheme.copy(background = background, surface = background), content = content)
 }

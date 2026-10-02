@@ -281,13 +281,28 @@ fun MainScreen(resumeTick: Int) {
         val i = info ?: return@LaunchedEffect
         if (streakAnim != null || goals.isEmpty() || subScreenOpen) return@LaunchedEffect
         val today = LocalDate.now()
-        streakAnim = when {
-            i.todaySaved -> StreakAnim(StreakAnimKind.Saved, i.completed)
-            !i.todayOk -> if (i.completed >= 1) StreakAnim(StreakAnimKind.Lost, i.completed) else null
-            i.current >= 1 -> StreakAnim(StreakAnimKind.Rise, i.current)
-            else -> null
-        }?.takeUnless { store.animShown(it.kind.key, today) }
-        streakAnimDay = today
+        val yesterday = today.minusDays(1)
+        // La racha solo se pierde del todo cuando ya no se puede salvar: hoy al pasar de
+        // 15 minutos, o ayer si se cerró el día sin salvarla.
+        val (anim, day) = when {
+            i.lostYesterday >= 1 && !store.animShown(StreakAnimKind.Lost.key, yesterday) &&
+                !store.animShown(StreakAnimKind.Lost.key, today) ->
+                StreakAnim(StreakAnimKind.Lost, i.lostYesterday) to yesterday
+            i.todaySaved -> StreakAnim(StreakAnimKind.Saved, i.completed) to today
+            !i.todayOk -> (if (i.completed >= 1 && !i.canSave) StreakAnim(StreakAnimKind.Lost, i.completed) else null) to today
+            i.current >= 1 -> StreakAnim(StreakAnimKind.Rise, i.current) to today
+            else -> null to today
+        }
+        streakAnim = anim?.takeUnless { store.animShown(it.kind.key, day) }
+        streakAnimDay = day
+    }
+
+    // Tono del fondo según cómo va el día
+    LaunchedEffect(info) {
+        val i = info ?: return@LaunchedEffect
+        DayMood.cloud = if (goals.isEmpty() || i.todayOk) 0f
+        else (i.maxOverMillis.toFloat() / Goal.SAVE_WINDOW_MS).coerceIn(0.08f, 1f)
+        DayMood.saved = goals.isNotEmpty() && i.todaySaved
     }
 
     if (showWhy) {

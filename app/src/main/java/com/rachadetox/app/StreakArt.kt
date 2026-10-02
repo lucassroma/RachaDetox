@@ -1,6 +1,7 @@
 package com.rachadetox.app
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -34,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.font.FontFamily
@@ -213,16 +215,21 @@ data class StreakAnim(val kind: StreakAnimKind, val days: Int)
 
 private const val ANIM_MS = 3600
 
+/** La racha perdida: los días bajan hasta cero en 3,45 s. */
+private const val LOST_ANIM_MS = 3450
+
 /**
  * Rise: cadenas que se rompen y un sol que amanece.
- * Lost / Saved: un sol que se nubla y barras de cárcel que se cierran.
+ * Lost: el contador de días baja hasta cero mientras el sol se pone.
+ * Saved: un sol que se nubla y barras de cárcel que se cierran.
  * Se cierra sola o al tocar la pantalla.
  */
 @Composable
 fun StreakAnimationOverlay(anim: StreakAnim, onDone: () -> Unit) {
     val progress = remember(anim) { Animatable(0f) }
     LaunchedEffect(anim) {
-        progress.animateTo(1f, tween(ANIM_MS, easing = LinearEasing))
+        val ms = if (anim.kind == StreakAnimKind.Lost) LOST_ANIM_MS else ANIM_MS
+        progress.animateTo(1f, tween(ms, easing = LinearEasing))
         delay(1600)
         onDone()
     }
@@ -242,7 +249,7 @@ fun StreakAnimationOverlay(anim: StreakAnim, onDone: () -> Unit) {
         Canvas(Modifier.fillMaxSize()) {
             when (anim.kind) {
                 StreakAnimKind.Rise -> drawRise(p)
-                StreakAnimKind.Lost -> drawClouded(p, saved = false)
+                StreakAnimKind.Lost -> drawSunset(p)
                 StreakAnimKind.Saved -> drawClouded(p, saved = true)
             }
         }
@@ -257,11 +264,11 @@ fun StreakAnimationOverlay(anim: StreakAnim, onDone: () -> Unit) {
                 ),
             )
             StreakAnimKind.Lost -> Pair(
-                tr("Hoy se ha nublado", "Clouds rolled in today", "Oggi si è rannuvolato"),
+                tr("Racha perdida", "Streak lost", "Serie persa"),
                 tr(
-                    "Tu racha de ${anim.days} ${dias(anim.days)} se ha roto. Mañana vuelve a salir el sol.",
-                    "Your streak of ${anim.days} ${dias(anim.days)} is over. Tomorrow the sun rises again.",
-                    "La tua serie di ${anim.days} ${dias(anim.days)} è finita. Domani torna il sole.",
+                    "Tu racha de ${anim.days} ${dias(anim.days)} se ha roto. El sol siempre vuelve a salir.",
+                    "Your streak of ${anim.days} ${dias(anim.days)} is over. The sun always rises again.",
+                    "La tua serie di ${anim.days} ${dias(anim.days)} è finita. Il sole torna sempre.",
                 ),
             )
             StreakAnimKind.Saved -> Pair(
@@ -273,7 +280,32 @@ fun StreakAnimationOverlay(anim: StreakAnim, onDone: () -> Unit) {
                 ),
             )
         }
-        val textAlpha = p.seg(0.55f, 0.85f)
+        if (anim.kind == StreakAnimKind.Lost) {
+            // Cuenta atrás: empieza despacio y acelera, como algo que se escapa
+            val shown = kotlin.math.ceil(anim.days * (1f - FastOutLinearInEasing.transform(p))).toInt()
+            val gone = p >= 1f
+            Column(
+                Modifier
+                    .align(Alignment.Center)
+                    .padding(bottom = 80.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    "$shown",
+                    color = lerp(AlbaColors.Sol, CloudLight, p),
+                    fontFamily = FontFamily.Serif,
+                    fontSize = 120.sp,
+                    lineHeight = 124.sp,
+                )
+                Text(
+                    if (shown == 1) tr("día seguido", "day in a row", "giorno di fila") else tr("días seguidos", "days in a row", "giorni di fila"),
+                    color = AlbaColors.Arena.copy(alpha = if (gone) 0.6f else 0.85f),
+                    fontSize = 18.sp,
+                )
+            }
+        }
+
+        val textAlpha = if (anim.kind == StreakAnimKind.Lost) p.seg(0.80f, 1f) else p.seg(0.55f, 0.85f)
         Column(
             Modifier
                 .align(Alignment.BottomCenter)
@@ -385,6 +417,42 @@ private fun DrawScope.drawLink(center: Offset, step: Float, flat: Boolean, degre
             style = Stroke(stroke),
         )
     }
+}
+
+// puesta de sol (racha perdida)
+
+private fun DrawScope.drawSunset(p: Float) {
+    val w = size.width
+    val h = size.height
+    val horizon = h * 0.78f
+    val sunR = w * 0.10f
+    val sinkP = p.ease()
+
+    // El cielo se apaga hacia el gris
+    drawRect(Color(0xFF2C2C33).copy(alpha = 0.85f * sinkP))
+
+    val sunCenter = Offset(w / 2f, lerpF(h * 0.16f, horizon + sunR * 1.2f, sinkP))
+    drawCircle(
+        Brush.radialGradient(
+            listOf(AlbaColors.Alba.copy(alpha = 0.45f * (1f - sinkP)), Color.Transparent),
+            center = sunCenter,
+            radius = w * 0.6f,
+        ),
+        radius = w * 0.6f,
+        center = sunCenter,
+    )
+    drawSun(sunCenter, sunR, alpha = 1f - 0.6f * sinkP, rotationDeg = -p * 30f, rayProgress = 1f - sinkP)
+
+    drawRect(
+        AlbaColors.Noche,
+        topLeft = Offset(0f, horizon),
+        size = Size(w, h - horizon),
+    )
+    drawLine(
+        CloudLight.copy(alpha = 0.5f),
+        Offset(0f, horizon), Offset(w, horizon),
+        strokeWidth = 3f, cap = StrokeCap.Round,
+    )
 }
 
 // nube + barras

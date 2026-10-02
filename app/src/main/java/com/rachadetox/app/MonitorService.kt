@@ -133,6 +133,39 @@ class MonitorService : Service() {
             }
         }
 
+        // Te has pasado y no has salvado la racha: avisos según se acaba el margen de 15 minutos
+        if (!info.todayOk && info.completed >= 1) {
+            fun saveAlert(level: String, title: String, text: String) {
+                val key = "$today|save|$level"
+                if (!store.alertSent(key)) {
+                    store.markAlert(key)
+                    Notifier.alert(ctx, SAVE_ALERT_ID, title, text)
+                }
+            }
+            val left = info.saveLeftMillis
+            val leftMin = ((left + 59_999L) / 60_000L).toInt()
+            fun leftText() = tr(
+                "Si te pasas $leftMin min más, ya no podrás salvar tu racha de ${info.completed} ${dias(info.completed)}. Toca aquí para salvarla.",
+                "$leftMin more min over and you can't save your streak of ${info.completed} ${dias(info.completed)}. Tap here to save it.",
+                "Ancora $leftMin min oltre e non potrai più salvare la tua serie di ${info.completed} ${dias(info.completed)}. Tocca qui per salvarla.",
+            )
+            val title = tr("El cielo se oscurece", "The sky is getting darker", "Il cielo si scurisce")
+            when {
+                !info.canSave -> saveAlert(
+                    "lost",
+                    tr("Racha perdida", "Streak lost", "Serie persa"),
+                    tr(
+                        "Te has pasado más de 15 minutos. Tu racha de ${info.completed} ${dias(info.completed)} se ha roto.",
+                        "You went over by more than 15 minutes. Your streak of ${info.completed} ${dias(info.completed)} is over.",
+                        "Hai superato di più di 15 minuti. La tua serie di ${info.completed} ${dias(info.completed)} è finita.",
+                    ),
+                )
+                left <= 2 * 60_000L -> saveAlert("2", title, leftText())
+                left <= 5 * 60_000L -> saveAlert("5", title, leftText())
+                left <= 10 * 60_000L -> saveAlert("10", title, leftText())
+            }
+        }
+
         val title = if (info.todayOk) inARow(info.current)
         else tr("Hoy se ha nublado", "Clouds rolled in today", "Oggi si è rannuvolato")
         val text = goals.joinToString(" · ") {
@@ -152,6 +185,7 @@ class MonitorService : Service() {
 
     companion object {
         private const val TICK_MS = 20_000L
+        private const val SAVE_ALERT_ID = 900
 
         fun start(context: Context) {
             try {

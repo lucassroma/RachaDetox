@@ -23,6 +23,10 @@ data class StreakInfo(
     val canSave: Boolean = false,
     /** Cuánto más te puedes pasar antes de que ya no se pueda salvar. */
     val saveLeftMillis: Long = 0L,
+    /** Lo máximo que te has pasado hoy en una app. */
+    val maxOverMillis: Long = 0L,
+    /** Si ayer se rompió la racha, cuántos días tenía (0 si no). */
+    val lostYesterday: Int = 0,
 )
 
 /**
@@ -67,6 +71,7 @@ object StreakEngine {
     fun allWithinLimits(goals: List<Goal>, usage: Map<String, Long>): Boolean =
         goals.none { it.isOver(usage[it.pkg] ?: 0L) }
 
+    /** Días cerrados seguidos cumpliendo antes de [today] (sin contarlo). */
     private fun completedStreak(store: Store, today: LocalDate): Int {
         var count = 0
         var day = today.minusDays(1)
@@ -94,6 +99,8 @@ object StreakEngine {
         val todayOk = within || todaySaved
         val completed = completedStreak(store, today)
         val current = if (todayOk) completed else 0
+        val yesterday = today.minusDays(1)
+        val lostYesterday = if (store.dayResult(yesterday) == false) completedStreak(store, yesterday) else 0
 
         val week = (6 downTo 0).map { back ->
             val d = today.minusDays(back.toLong())
@@ -110,6 +117,8 @@ object StreakEngine {
             completed = completed,
             canSave = overToday.isNotEmpty() && maxOver <= Goal.SAVE_WINDOW_MS,
             saveLeftMillis = saveLeft,
+            maxOverMillis = maxOver,
+            lostYesterday = lostYesterday,
         )
     }
 }
