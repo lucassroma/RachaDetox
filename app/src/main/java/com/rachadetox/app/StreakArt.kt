@@ -207,7 +207,7 @@ fun StreakCardDecoration(bright: Boolean, ink: Color, modifier: Modifier = Modif
 
 // Animaciones a pantalla completa
 
-enum class StreakAnimKind { Rise, Lost, Saved }
+enum class StreakAnimKind(val key: String) { Rise("rise"), Lost("lost"), Saved("saved") }
 
 data class StreakAnim(val kind: StreakAnimKind, val days: Int)
 

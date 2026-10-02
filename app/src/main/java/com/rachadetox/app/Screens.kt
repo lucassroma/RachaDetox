@@ -186,6 +186,7 @@ fun MainScreen(resumeTick: Int) {
     var showBlockSetup by remember { mutableStateOf(false) }
     var pendingAction by rememberSaveable { mutableStateOf<String?>(null) }
     var streakAnim by remember { mutableStateOf<StreakAnim?>(null) }
+    var streakAnimDay by remember { mutableStateOf(LocalDate.now()) }
     val autoState = remember(resumeTick, refresh) { store.autoBlockActive() to store.autoBlockTurningOff() }
     val blockedToday = remember(resumeTick, refresh) { store.blockedTodayPackages().toSet() }
 
@@ -253,25 +254,21 @@ fun MainScreen(resumeTick: Int) {
         }
     }
 
-    // Animación de racha: una vez al día por tipo (ganar, perder, salvar)
-    LaunchedEffect(info) {
+    // Animación de racha: una vez al día por tipo (ganar, perder, salvar).
+    // Solo se marca como vista cuando de verdad se ha mostrado y cerrado, así que
+    // cada día de racha la ves una vez aunque abras la app varias veces.
+    val subScreenOpen = showWhy || showPrivacy || showProfile || showPicker || showLanguage
+    LaunchedEffect(info, subScreenOpen) {
         val i = info ?: return@LaunchedEffect
-        if (streakAnim != null || goals.isEmpty()) return@LaunchedEffect
+        if (streakAnim != null || goals.isEmpty() || subScreenOpen) return@LaunchedEffect
         val today = LocalDate.now()
-        when {
-            i.todaySaved -> if (!store.animShown("saved", today)) {
-                store.markAnimShown("saved", today)
-                streakAnim = StreakAnim(StreakAnimKind.Saved, i.completed)
-            }
-            !i.todayOk -> if (i.completed >= 1 && !store.animShown("lost", today)) {
-                store.markAnimShown("lost", today)
-                streakAnim = StreakAnim(StreakAnimKind.Lost, i.completed)
-            }
-            i.current >= 1 -> if (!store.animShown("rise", today)) {
-                store.markAnimShown("rise", today)
-                streakAnim = StreakAnim(StreakAnimKind.Rise, i.current)
-            }
-        }
+        streakAnim = when {
+            i.todaySaved -> StreakAnim(StreakAnimKind.Saved, i.completed)
+            !i.todayOk -> if (i.completed >= 1) StreakAnim(StreakAnimKind.Lost, i.completed) else null
+            i.current >= 1 -> StreakAnim(StreakAnimKind.Rise, i.current)
+            else -> null
+        }?.takeUnless { store.animShown(it.kind.key, today) }
+        streakAnimDay = today
     }
 
     if (showWhy) {
@@ -386,7 +383,12 @@ fun MainScreen(resumeTick: Int) {
             item { PrivacyEntryCard { showPrivacy = true } }
         }
     }
-    streakAnim?.let { anim -> StreakAnimationOverlay(anim) { streakAnim = null } }
+    streakAnim?.let { anim ->
+        StreakAnimationOverlay(anim) {
+            store.markAnimShown(anim.kind.key, streakAnimDay)
+            streakAnim = null
+        }
+    }
     }
 
     if (showPicker) {
