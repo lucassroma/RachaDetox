@@ -77,17 +77,6 @@ fun LanguagePicker(onPick: (AppLang) -> Unit) {
     }
 }
 
-/** Fila de la pantalla principal para cambiar el idioma. */
-@Composable
-fun LanguageEntry(onClick: () -> Unit) {
-    TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Text(
-            tr("Idioma", "Language", "Lingua") + ": " + Lang.current.label,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-    }
-}
-
 @Composable
 fun LanguageDialog(onDismiss: () -> Unit, onPick: (AppLang) -> Unit) {
     AlertDialog(

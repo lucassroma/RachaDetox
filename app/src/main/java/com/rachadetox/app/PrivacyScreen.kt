@@ -173,18 +173,3 @@ private fun PrivacyBlock(title: String, lines: List<String>) {
     }
 }
 
-/** Tarjeta pequeña de la pantalla principal que lleva a la sección de privacidad. */
-@Composable
-fun PrivacyEntryCard(onClick: () -> Unit) {
-    TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Text(
-            tr(
-                "Tus datos no se venden. Alba ni siquiera tiene acceso a Internet →",
-                "Your data isn't sold. Alba doesn't even have Internet access →",
-                "I tuoi dati non vengono venduti. Alba non ha nemmeno accesso a Internet →",
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}

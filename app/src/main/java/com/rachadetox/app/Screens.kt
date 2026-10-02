@@ -44,6 +44,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -345,6 +347,7 @@ fun MainScreen(resumeTick: Int) {
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // ---- Cabecera
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
@@ -359,44 +362,69 @@ fun MainScreen(resumeTick: Int) {
                             color = MaterialTheme.colorScheme.secondary,
                         )
                     }
-                    OutlinedButton(onClick = { showProfile = true }) { Text(tr("Tu perfil", "Your profile", "Il tuo profilo")) }
+                    TextButton(onClick = { showProfile = true }) { Text(tr("Tu perfil", "Your profile", "Il tuo profilo")) }
                 }
             }
+
+            // ---- La racha y la semana
             item { StreakCard(info, hasGoals = goals.isNotEmpty()) }
-
-            val over = info?.overToday.orEmpty()
-            val recovery = info?.recovery
-            // Hay apps que deben estar cerradas pero Alba no tiene permiso para cerrarlas
-            val mustBlock = blockedToday.isNotEmpty() ||
-                (recovery != null && !recovery.forfeited && recovery.day == LocalDate.now())
-            if (mustBlock && !blockerOn) {
-                item { BlockerNeededCard(stuck = blockerStuck) { showBlockSetup = true } }
-            }
-            if (recovery != null) {
-                val names = recovery.pkgs.map { pkg -> goals.firstOrNull { it.pkg == pkg }?.label ?: pkg }
-                item { RecoveryCard(recovery, names, isTrialDay = recovery.day != LocalDate.now()) }
-            } else if (over.isNotEmpty() && info?.todaySaved != true) {
-                item { SaveStreakCard(over, info?.canSave == true, info?.saveLeftMillis ?: 0L) { request("save") } }
-            }
-
-            if (goals.isNotEmpty()) {
-                item { ExtraMinutesCard(used = extraUsed, onUse = { useExtra() }) }
-            }
-
             val currentInfo = info
             if (goals.isNotEmpty() && currentInfo != null) {
-                item { WeekCard(currentInfo.week) }
+                item { WeekStrip(currentInfo.week) }
             }
 
-            item { WhyEntryCard { showWhy = true } }
+            // ---- Un solo aviso a la vez: el más importante
+            val over = info?.overToday.orEmpty()
+            val recovery = info?.recovery
+            val mustBlock = blockedToday.isNotEmpty() ||
+                (recovery != null && !recovery.forfeited && recovery.day == LocalDate.now())
+            when {
+                mustBlock && !blockerOn ->
+                    item { BlockerNeededCard(stuck = blockerStuck) { showBlockSetup = true } }
+                recovery != null -> {
+                    val names = recovery.pkgs.map { pkg -> goals.firstOrNull { it.pkg == pkg }?.label ?: pkg }
+                    item { RecoveryCard(recovery, names, isTrialDay = recovery.day != LocalDate.now()) }
+                }
+                over.isNotEmpty() && info?.todaySaved != true ->
+                    item { SaveStreakCard(over, info?.canSave == true, info?.saveLeftMillis ?: 0L) { request("save") } }
+            }
 
+            // ---- Tus apps
             item {
-                Text(
-                    tr("Tus apps", "Your apps", "Le tue app"),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SectionTitle(tr("Tus apps", "Your apps", "Le tue app"), Modifier.weight(1f))
+                    if (goals.isNotEmpty()) {
+                        FilledTonalButton(
+                            onClick = { useExtra() },
+                            enabled = !extraUsed,
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                        ) {
+                            Text(
+                                if (extraUsed) tr("+5 min usados", "+5 min used", "+5 min usati")
+                                else tr("+5 min, por favor", "+5 min, please", "+5 min, per favore"),
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                        }
+                    }
+                }
+            }
+            if (goals.isNotEmpty()) {
+                item {
+                    Text(
+                        tr(
+                            "Una vez al día: 5 minutos de regalo en cada app, aunque te hayas pasado.",
+                            "Once a day: 5 bonus minutes in each app, even if you're over.",
+                            "Una volta al giorno: 5 minuti regalo in ogni app, anche se hai sforato.",
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             if (goals.isEmpty()) {
@@ -437,19 +465,55 @@ fun MainScreen(resumeTick: Int) {
                 }
             }
 
-            if (goals.isNotEmpty()) {
-                item {
-                    AutoBlockCard(active = autoState.first, turningOff = autoState.second) { on ->
-                        if (on) request("auto") else {
-                            store.setAutoBlock(false)
-                            refresh++
-                        }
+            // ---- Más: lo que no hace falta ver cada día, en una sola tarjeta tranquila
+            item { SectionTitle(tr("Más", "More", "Altro"), Modifier.padding(top = 16.dp)) }
+            item {
+                OutlinedCard(Modifier.fillMaxWidth()) {
+                    if (goals.isNotEmpty()) {
+                        val autoOn = autoState.first && !autoState.second
+                        SettingsRow(
+                            title = tr("Que Alba cierre la puerta", "Let Alba close the door", "Lascia che Alba chiuda la porta"),
+                            subtitle = if (autoState.second) tr("Se apaga mañana", "Turns off tomorrow", "Si spegne domani")
+                            else tr("Al llegar al límite, la app se cierra hasta mañana", "At your limit, the app closes until tomorrow", "Al limite, l'app si chiude fino a domani"),
+                            onClick = { if (autoOn) { store.setAutoBlock(false); refresh++ } else request("auto") },
+                            trailing = {
+                                Switch(checked = autoOn, onCheckedChange = { on ->
+                                    if (on) request("auto") else {
+                                        store.setAutoBlock(false)
+                                        refresh++
+                                    }
+                                })
+                            },
+                        )
+                        HorizontalDivider()
                     }
+                    SettingsRow(
+                        title = tr("¿Por qué me aburro?", "Why am I bored?", "Perché mi annoio?"),
+                        subtitle = tr("Lo que pasa en tu cabeza cuando haces scroll", "What happens in your head when you scroll", "Cosa succede nella tua testa quando scorri"),
+                        onClick = { showWhy = true },
+                    )
+                    HorizontalDivider()
+                    if (goals.isNotEmpty()) {
+                        SettingsRow(
+                            title = tr("Que los avisos lleguen siempre", "Make sure reminders arrive", "Perché gli avvisi arrivino sempre"),
+                            subtitle = tr("Quita la optimización de batería para Alba", "Turn off battery optimization for Alba", "Disattiva l'ottimizzazione batteria per Alba"),
+                            onClick = { openSettings(context, Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS) },
+                        )
+                        HorizontalDivider()
+                    }
+                    SettingsRow(
+                        title = tr("Idioma", "Language", "Lingua"),
+                        subtitle = Lang.current.label,
+                        onClick = { showLanguage = true },
+                    )
+                    HorizontalDivider()
+                    SettingsRow(
+                        title = tr("Privacidad", "Privacy", "Privacy"),
+                        subtitle = tr("Alba ni siquiera tiene acceso a Internet", "Alba doesn't even have Internet access", "Alba non ha nemmeno accesso a Internet"),
+                        onClick = { showPrivacy = true },
+                    )
                 }
-                item { BatteryTip() }
             }
-            item { LanguageEntry { showLanguage = true } }
-            item { PrivacyEntryCard { showPrivacy = true } }
         }
     }
     streakAnim?.let { anim ->
@@ -608,13 +672,51 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
     }
 }
 
+/** Título discreto de cada sección de la pantalla principal. */
 @Composable
-fun WeekCard(week: List<DayStatus>) {
+fun SectionTitle(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        modifier = modifier,
+        style = MaterialTheme.typography.titleMedium,
+        fontFamily = FontFamily.Serif,
+    )
+}
+
+/** Fila compacta de la sección «Más»: título, una línea de explicación y una flecha o un control. */
+@Composable
+fun SettingsRow(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    trailing: @Composable () -> Unit = { Text("→", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        trailing()
+    }
+}
+
+/** La semana, sin tarjeta: siete días bajo el panel de la racha. */
+@Composable
+fun WeekStrip(week: List<DayStatus>) {
     val locale = Lang.locale
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            Text(tr("Tu semana", "Your week", "La tua settimana"), style = MaterialTheme.typography.labelLarge)
-            Spacer(Modifier.height(10.dp))
+    Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+        run {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 week.forEach { day ->
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -779,28 +881,6 @@ fun UnblockDialog(goal: Goal, isOver: Boolean, breaksRecovery: Boolean, onDismis
             TextButton(onClick = onDismiss) { Text(tr("Mejor no", "Better not", "Meglio di no")) }
         },
     )
-}
-
-@Composable
-fun BatteryTip() {
-    val context = LocalContext.current
-    OutlinedCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            Text(tr("🔋 Para que los avisos lleguen siempre", "🔋 So reminders always arrive", "🔋 Perché gli avvisi arrivino sempre"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(4.dp))
-            Text(
-                tr(
-                    "Algunos móviles (Xiaomi, Samsung, Huawei…) cierran las apps en segundo plano. Quita la optimización de batería para Alba.",
-                    "Some phones (Xiaomi, Samsung, Huawei…) close apps in the background. Turn off battery optimization for Alba.",
-                    "Alcuni telefoni (Xiaomi, Samsung, Huawei…) chiudono le app in background. Disattiva l'ottimizzazione della batteria per Alba.",
-                ),
-                style = MaterialTheme.typography.bodySmall,
-            )
-            TextButton(onClick = {
-                openSettings(context, Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-            }) { Text(tr("Abrir ajustes de batería", "Open battery settings", "Apri impostazioni batteria")) }
-        }
-    }
 }
 
 // ---------------------------------------------------------------- iconos
@@ -1003,26 +1083,6 @@ fun LimitDialog(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun WhyEntryCard(onClick: () -> Unit) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            BrainArt(Modifier.size(56.dp), state = BrainState.Overloaded)
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(tr("¿Por qué me aburro?", "Why am I bored?", "Perché mi annoio?"), style = MaterialTheme.typography.titleMedium, fontFamily = FontFamily.Serif)
-                Text(
-                    tr("Lo que pasa en tu cabeza cuando haces scroll", "What happens in your head when you scroll", "Cosa succede nella tua testa quando scorri"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Text("→", style = MaterialTheme.typography.titleLarge)
-        }
-    }
-}
-
 @Composable
 fun SaveStreakCard(apps: List<Goal>, canSave: Boolean, saveLeftMillis: Long, onSave: () -> Unit) {
     val names = apps.joinToString(tr(" y ", " and ", " e ")) { it.label }
@@ -1046,17 +1106,17 @@ fun SaveStreakCard(apps: List<Goal>, canSave: Boolean, saveLeftMillis: Long, onS
             Text(tr("¿Salvar tu racha?", "Save your streak?", "Salvare la tua serie?"), style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
             Text(
                 tr(
-                    "Si no la salvas, la pierdes. Cierra $names lo que queda de día y hoy seguirá contando. Será un día a medias: medio sol.",
-                    "If you don't save it, you lose it. Close $names for the rest of the day and today will still count. A half day: half a sun.",
-                    "Se non la salvi, la perdi. Chiudi $names per il resto della giornata e oggi conterà lo stesso. Una giornata a metà: mezzo sole.",
+                    "Cierra $names hasta mañana y hoy seguirá contando: medio sol.",
+                    "Close $names until tomorrow and today still counts: half a sun.",
+                    "Chiudi $names fino a domani e oggi conta lo stesso: mezzo sole.",
                 ),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
                 tr(
-                    "Solo se puede salvar si no te pasas más de 15 minutos. Te quedan ${formatDuration(saveLeftMillis)}.",
-                    "You can only save it if you don't go over by more than 15 minutes. ${formatDuration(saveLeftMillis)} left.",
-                    "Puoi salvarla solo se non superi di più di 15 minuti. Ti restano ${formatDuration(saveLeftMillis)}.",
+                    "Te quedan ${formatDuration(saveLeftMillis)} para decidirte.",
+                    "${formatDuration(saveLeftMillis)} left to decide.",
+                    "Ti restano ${formatDuration(saveLeftMillis)} per decidere.",
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.SemiBold,
@@ -1149,65 +1209,6 @@ fun RecoveryCard(recovery: Recovery, names: List<String>, isTrialDay: Boolean) {
                 Text(title, style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
                 Text(body, style = MaterialTheme.typography.bodyMedium)
             }
-        }
-    }
-}
-
-@Composable
-fun ExtraMinutesCard(used: Boolean, onUse: () -> Unit) {
-    OutlinedCard(Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    tr("Cinco minutos más, por favor", "Five more minutes, please", "Cinque minuti in più, per favore"),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontFamily = FontFamily.Serif,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    if (used) tr(
-                        "Ya los has usado hoy: cada app tiene 5 minutos de regalo desde que lo pulsaste, aunque te hubieras pasado. Mañana vuelves a tenerlos.",
-                        "Already used today: each app gets 5 bonus minutes from when you tapped it, even if you were over. You'll have them again tomorrow.",
-                        "Già usati oggi: ogni app ha 5 minuti regalo da quando l'hai toccato, anche se avevi sforato. Domani li avrai di nuovo.",
-                    ) else tr(
-                        "Una vez al día: 5 minutos más de uso en cada app, aunque ya te hayas pasado o esté cerrada. No cuentan para el límite.",
-                        "Once a day: 5 more minutes of use in each app, even if you are over or it is closed. They don't count towards the limit.",
-                        "Una volta al giorno: 5 minuti in più di uso in ogni app, anche se hai sforato o è chiusa. Non contano per il limite.",
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            Button(onClick = onUse, enabled = !used) { Text("+5 min") }
-        }
-    }
-}
-
-@Composable
-fun AutoBlockCard(active: Boolean, turningOff: Boolean, onToggle: (Boolean) -> Unit) {
-    OutlinedCard(Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(tr("Que Alba cierre la puerta", "Let Alba close the door", "Lascia che Alba chiuda la porta"), style = MaterialTheme.typography.titleMedium, fontFamily = FontFamily.Serif)
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    if (turningOff) tr(
-                        "Se apagará mañana. Hasta entonces, sigue de tu lado.",
-                        "It will turn off tomorrow. Until then, it's still on your side.",
-                        "Si spegnerà domani. Fino ad allora, resta dalla tua parte.",
-                    )
-                    else tr(
-                        "Cuando llegues a tu límite, la app se queda cerrada hasta mañana. Así no tienes que pelearte tú.",
-                        "When you reach your limit, the app stays closed until tomorrow. That way you don't have to fight it yourself.",
-                        "Quando raggiungi il limite, l'app resta chiusa fino a domani. Così non devi combattere tu.",
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            Switch(checked = active && !turningOff, onCheckedChange = onToggle)
         }
     }
 }
