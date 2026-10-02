@@ -297,27 +297,26 @@ fun MainScreen(resumeTick: Int) {
         streakAnimDay = day
     }
 
-    // Tono del fondo según cómo va el día
-    LaunchedEffect(info) {
-        val i = info ?: return@LaunchedEffect
-        DayMood.cloud = if (goals.isEmpty() || i.todayOk) 0f
-        else (i.maxOverMillis.toFloat() / Goal.SAVE_WINDOW_MS).coerceIn(0.08f, 1f)
-        DayMood.saved = goals.isNotEmpty() && i.todaySaved
-    }
+    // Tono del fondo según cómo va el día: se oscurece cuanto más te acercas a los 15 minutos
+    val moodInfo = info
+    val moodCloud = if (moodInfo == null || goals.isEmpty() || moodInfo.todayOk) 0f
+    else (moodInfo.maxOverMillis.toFloat() / Goal.SAVE_WINDOW_MS).coerceIn(0.08f, 1f)
+    val moodSaved = goals.isNotEmpty() && moodInfo?.todaySaved == true
 
     if (showWhy) {
-        WhyScreen(onBack = { showWhy = false })
+        MoodTheme(moodCloud, moodSaved) { WhyScreen(onBack = { showWhy = false }) }
         return
     }
     if (showPrivacy) {
-        PrivacyScreen(onBack = { showPrivacy = false })
+        MoodTheme(moodCloud, moodSaved) { PrivacyScreen(onBack = { showPrivacy = false }) }
         return
     }
     if (showProfile) {
-        ProfileScreen(goals = goals, onBack = { showProfile = false })
+        MoodTheme(moodCloud, moodSaved) { ProfileScreen(goals = goals, onBack = { showProfile = false }) }
         return
     }
 
+    MoodTheme(moodCloud, moodSaved) {
     Box(Modifier.fillMaxSize()) {
     Scaffold(
         floatingActionButton = {
@@ -430,6 +429,7 @@ fun MainScreen(resumeTick: Int) {
             store.markAnimShown(anim.kind.key, streakAnimDay)
             streakAnim = null
         }
+    }
     }
     }
 
@@ -586,6 +586,11 @@ private fun DayDot(day: DayStatus) {
     }
     if (day.ok == true) {
         SunDayIcon(Modifier.size(36.dp))
+        return
+    }
+    // Día perdido: un candado
+    if (day.ok == false) {
+        LockDayIcon(Modifier.size(36.dp))
         return
     }
     val (bg, symbol, fg) = when (day.ok) {

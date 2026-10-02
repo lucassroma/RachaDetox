@@ -125,6 +125,54 @@ fun CloudDayIcon(modifier: Modifier) {
     }
 }
 
+/** Icono de día perdido en la semana: un candado que se cierra al aparecer. */
+@Composable
+fun LockDayIcon(modifier: Modifier) {
+    val close = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        delay(250)
+        close.animateTo(1f, tween(650, easing = FastOutSlowInEasing))
+    }
+    Canvas(modifier) {
+        val s = size.minDimension
+        val c = center
+        drawCircle(CloudColor.copy(alpha = 0.22f), s * 0.5f, c)
+
+        val bodyW = s * 0.44f
+        val bodyH = s * 0.34f
+        val bodyTop = c.y - bodyH * 0.15f
+        val shackleW = bodyW * 0.62f
+        val stroke = s * 0.075f
+        // El arco empieza levantado y baja hasta encajar en el cuerpo
+        val lift = (1f - close.value) * s * 0.12f
+        val shackleTop = bodyTop - shackleW * 0.9f - lift
+        val legBottom = bodyTop + stroke - lift
+        val path = Path().apply {
+            moveTo(c.x - shackleW / 2f, legBottom)
+            lineTo(c.x - shackleW / 2f, shackleTop + shackleW / 2f)
+            arcTo(
+                androidx.compose.ui.geometry.Rect(c.x - shackleW / 2f, shackleTop, c.x + shackleW / 2f, shackleTop + shackleW),
+                180f, 180f, false,
+            )
+            lineTo(c.x + shackleW / 2f, legBottom)
+        }
+        drawPath(path, CloudColor, style = Stroke(stroke, cap = StrokeCap.Round))
+        drawRoundRect(
+            CloudColor,
+            topLeft = Offset(c.x - bodyW / 2f, bodyTop),
+            size = Size(bodyW, bodyH),
+            cornerRadius = CornerRadius(s * 0.07f, s * 0.07f),
+        )
+        // Ojo de la cerradura
+        drawCircle(AlbaColors.Arena, s * 0.045f, Offset(c.x, bodyTop + bodyH * 0.42f))
+        drawLine(
+            AlbaColors.Arena,
+            Offset(c.x, bodyTop + bodyH * 0.42f), Offset(c.x, bodyTop + bodyH * 0.72f),
+            strokeWidth = s * 0.04f, cap = StrokeCap.Round,
+        )
+    }
+}
+
 // Decoración del panel amarillo de la racha
 
 @Composable
@@ -209,7 +257,8 @@ fun StreakCardDecoration(bright: Boolean, ink: Color, modifier: Modifier = Modif
 
 // Animaciones a pantalla completa
 
-enum class StreakAnimKind(val key: String) { Rise("rise"), Lost("lost"), Saved("saved") }
+// "lost_total": clave nueva para que no la bloquee la marca de la antigua animación de nube
+enum class StreakAnimKind(val key: String) { Rise("rise"), Lost("lost_total"), Saved("saved") }
 
 data class StreakAnim(val kind: StreakAnimKind, val days: Int)
 
