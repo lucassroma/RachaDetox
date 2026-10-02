@@ -110,6 +110,12 @@ class BlockerService : AccessibilityService() {
         @Volatile
         var instance: BlockerService? = null
 
+        /**
+         * El permiso está activado Y el servicio está funcionando de verdad. Tras una
+         * actualización, algunos móviles dejan el interruptor encendido pero el servicio parado.
+         */
+        fun isWorking(context: Context): Boolean = isEnabled(context) && instance != null
+
         fun isEnabled(context: Context): Boolean {
             val enabled = Settings.Secure.getString(
                 context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES

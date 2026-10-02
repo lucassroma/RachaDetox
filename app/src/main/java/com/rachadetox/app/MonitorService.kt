@@ -71,7 +71,7 @@ class MonitorService : Service() {
         StreakEngine.applyTotalLoss(ctx, info)
         val today = LocalDate.now().toString()
         // Hay apps que deben estar cerradas y Alba no tiene permiso para cerrarlas: avisar
-        if (store.blockedTodayPackages().isNotEmpty() && !BlockerService.isEnabled(ctx)) {
+        if (store.blockedTodayPackages().isNotEmpty() && !BlockerService.isWorking(ctx)) {
             val key = "$today|blocker_off"
             if (!store.alertSent(key)) {
                 store.markAlert(key)
@@ -103,7 +103,7 @@ class MonitorService : Service() {
             }
 
             // Bloqueo automático: al llegar al límite, la app se cierra hasta mañana
-            if (used >= goal.limitMillis && store.autoBlockActive() && BlockerService.isEnabled(ctx) &&
+            if (used >= goal.limitMillis && store.autoBlockActive() && BlockerService.isWorking(ctx) &&
                 !store.isBlockedToday(goal.pkg) && !store.wasUnblockedToday(goal.pkg)
             ) {
                 store.blockToday(listOf(goal.pkg))

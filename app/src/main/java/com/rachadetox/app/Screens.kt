@@ -190,7 +190,8 @@ fun MainScreen(resumeTick: Int) {
     var streakAnimDay by remember { mutableStateOf(LocalDate.now()) }
     val autoState = remember(resumeTick, refresh) { store.autoBlockActive() to store.autoBlockTurningOff() }
     val blockedToday = remember(resumeTick, refresh, info) { store.blockedTodayPackages().toSet() }
-    val blockerOn = remember(resumeTick, refresh, info) { BlockerService.isEnabled(context) }
+    val blockerOn = remember(resumeTick, refresh, info) { BlockerService.isWorking(context) }
+    val blockerStuck = remember(resumeTick, refresh, info) { BlockerService.isEnabled(context) && BlockerService.instance == null }
     val extraUsed = remember(resumeTick, refresh, info) { store.extraUsed(LocalDate.now()) }
 
     fun useExtra() {
@@ -219,7 +220,7 @@ fun MainScreen(resumeTick: Int) {
     }
 
     fun request(action: String) {
-        if (BlockerService.isEnabled(context)) {
+        if (BlockerService.isWorking(context)) {
             runAction(action)
         } else {
             pendingAction = action
@@ -230,7 +231,7 @@ fun MainScreen(resumeTick: Int) {
     // Al volver de Ajustes con el permiso concedido, terminamos lo que estaba pendiente
     LaunchedEffect(resumeTick) {
         val action = pendingAction
-        if (action != null && BlockerService.isEnabled(context)) {
+        if (action != null && BlockerService.isWorking(context)) {
             pendingAction = null
             showBlockSetup = false
             runAction(action)
@@ -366,7 +367,7 @@ fun MainScreen(resumeTick: Int) {
             val mustBlock = blockedToday.isNotEmpty() ||
                 (recovery != null && !recovery.forfeited && recovery.day == LocalDate.now())
             if (mustBlock && !blockerOn) {
-                item { BlockerNeededCard { showBlockSetup = true } }
+                item { BlockerNeededCard(stuck = blockerStuck) { showBlockSetup = true } }
             }
             if (recovery != null) {
                 val names = recovery.pkgs.map { pkg -> goals.firstOrNull { it.pkg == pkg }?.label ?: pkg }
@@ -1018,7 +1019,7 @@ fun SaveStreakCard(apps: List<Goal>, canSave: Boolean, saveLeftMillis: Long, onS
 }
 
 @Composable
-fun BlockerNeededCard(onFix: () -> Unit) {
+fun BlockerNeededCard(stuck: Boolean, onFix: () -> Unit) {
     Card(
         Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -1030,7 +1031,14 @@ fun BlockerNeededCard(onFix: () -> Unit) {
                 style = MaterialTheme.typography.titleLarge,
                 fontFamily = FontFamily.Serif,
             )
-            Text(
+            if (stuck) Text(
+                tr(
+                    "El permiso de Accesibilidad de Alba sale activado, pero no está funcionando (pasa a veces tras actualizar). Entra en Accesibilidad, apaga Alba y vuelve a encenderla.",
+                    "Alba's Accessibility permission shows as on, but it isn't working (this sometimes happens after an update). Go to Accessibility, turn Alba off and on again.",
+                    "L'autorizzazione Accessibilità di Alba risulta attiva, ma non funziona (a volte succede dopo un aggiornamento). Vai in Accessibilità, spegni Alba e riaccendila.",
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+            ) else Text(
                 tr(
                     "Hoy hay apps que tienen que estar cerradas, pero el permiso de Accesibilidad de Alba está apagado (a veces el móvil lo apaga al actualizar). Actívalo para que se cierren.",
                     "Some apps must be closed today, but Alba's Accessibility permission is off (phones sometimes turn it off after an update). Turn it on so they close.",
