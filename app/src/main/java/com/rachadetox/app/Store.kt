@@ -337,7 +337,8 @@ class Store(context: Context) {
         private const val KEY_EXTRA = "extra_days"
         private const val KEY_EXTRA_WINDOWS = "extra_windows"
         const val EXTRA_MS = 5 * 60_000L
-        private const val KEY_RECOVERY = "recovery"        private const val KEY_REMOVED = "removed_goals"
+        private const val KEY_RECOVERY = "recovery"
+        private const val KEY_REMOVED = "removed_goals"
         private const val KEY_SAVED = "saved_days"
         private const val KEY_AUTO = "auto_block"
         private const val KEY_AUTO_OFF = "auto_block_off_from"
