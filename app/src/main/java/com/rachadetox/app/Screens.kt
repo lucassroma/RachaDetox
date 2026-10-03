@@ -1,5 +1,14 @@
 package com.rachadetox.app
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.key
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.ui.graphics.graphicsLayer
 import java.time.LocalDate
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.material3.Switch
@@ -134,7 +143,7 @@ fun PermissionScreen() {
             Text(
                 "alba",
                 style = MaterialTheme.typography.displaySmall,
-                fontFamily = FontFamily.Serif,
+                fontFamily = AlbaType.heading,
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(16.dp))
@@ -186,6 +195,7 @@ fun MainScreen(resumeTick: Int) {
     var showProfile by rememberSaveable { mutableStateOf(false) }
     var showPrivacy by rememberSaveable { mutableStateOf(false) }
     var showLanguage by remember { mutableStateOf(false) }
+    var showStyle by remember { mutableStateOf(false) }
     var refresh by remember { mutableIntStateOf(0) }
     var showBlockSetup by remember { mutableStateOf(false) }
     var pendingAction by rememberSaveable { mutableStateOf<String?>(null) }
@@ -325,52 +335,65 @@ fun MainScreen(resumeTick: Int) {
         return
     }
 
+    val revealed = remember { mutableSetOf<String>() }
     MoodTheme(moodCloud, moodSaved) {
-    Box(Modifier.fillMaxSize()) {
+    CompositionLocalProvider(LocalRevealed provides revealed) {
+    StyleBackground(moodCloud, moodSaved) {
+    val ringHero = LocalAlbaStyle.current.segmentRing
     Scaffold(
+        containerColor = Color.Transparent,
         floatingActionButton = {
-            ExtendedFloatingActionButton(
+            AlbaButton(
+                tr("＋  Añadir app", "＋  Add app", "＋  Aggiungi app"),
                 onClick = { showPicker = true },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-            ) {
-                Text(tr("＋  Añadir app", "＋  Add app", "＋  Aggiungi app"))
-            }
+                padding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+            )
         }
     ) { padding ->
         LazyColumn(
             contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
+                start = 18.dp,
+                end = 18.dp,
                 top = padding.calculateTopPadding() + 16.dp,
-                bottom = padding.calculateBottomPadding() + 96.dp,
+                bottom = padding.calculateBottomPadding() + 104.dp,
             ),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             // ---- Cabecera
             item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.reveal("header", 0), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(
-                            "alba",
+                            label("alba"),
                             style = MaterialTheme.typography.headlineLarge,
-                            fontFamily = FontFamily.Serif,
+                            fontFamily = AlbaType.heading,
+                            fontWeight = FontWeight.ExtraBold,
                         )
                         Text(
                             tr("Mira arriba.", "Look up.", "Guarda in alto."),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.secondary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    TextButton(onClick = { showProfile = true }) { Text(tr("Tu perfil", "Your profile", "Il tuo profilo")) }
+                    AlbaButton(
+                        tr("Tu perfil", "Your profile", "Il tuo profilo"),
+                        onClick = { showProfile = true },
+                        tonal = true,
+                        padding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+                    )
                 }
             }
 
+            // ---- Elegir estilo (hasta que te quedes con uno)
+            if (!Styles.hasChosen) {
+                item { Box(Modifier.reveal("styles", 1)) { StylePickerCard() } }
+            }
+
             // ---- La racha y la semana
-            item { StreakCard(info, hasGoals = goals.isNotEmpty()) }
+            item { Box(Modifier.reveal("hero", 2)) { StreakCard(info, hasGoals = goals.isNotEmpty()) } }
             val currentInfo = info
-            if (goals.isNotEmpty() && currentInfo != null) {
-                item { WeekStrip(currentInfo.week) }
+            if (goals.isNotEmpty() && currentInfo != null && !ringHero) {
+                item { Box(Modifier.reveal("week", 3)) { WeekStrip(currentInfo.week) } }
             }
 
             // ---- Un solo aviso a la vez: el más importante
@@ -380,56 +403,49 @@ fun MainScreen(resumeTick: Int) {
                 (recovery != null && !recovery.forfeited && recovery.day == LocalDate.now())
             when {
                 mustBlock && !blockerOn ->
-                    item { BlockerNeededCard(stuck = blockerStuck) { showBlockSetup = true } }
+                    item { Box(Modifier.reveal("alert-blocker", 4)) { BlockerNeededCard(stuck = blockerStuck) { showBlockSetup = true } } }
                 recovery != null -> {
                     val names = recovery.pkgs.map { pkg -> goals.firstOrNull { it.pkg == pkg }?.label ?: pkg }
-                    item { RecoveryCard(recovery, names, isTrialDay = recovery.day != LocalDate.now()) }
+                    item { Box(Modifier.reveal("alert-recovery", 4)) { RecoveryCard(recovery, names, isTrialDay = recovery.day != LocalDate.now()) } }
                 }
                 over.isNotEmpty() && info?.todaySaved != true ->
-                    item { SaveStreakCard(over, info?.canSave == true, info?.saveLeftMillis ?: 0L) { request("save") } }
+                    item { Box(Modifier.reveal("alert-save", 4)) { SaveStreakCard(over, info?.canSave == true, info?.saveLeftMillis ?: 0L) { request("save") } } }
             }
 
             // ---- Tus apps
             item {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SectionTitle(tr("Tus apps", "Your apps", "Le tue app"), Modifier.weight(1f))
-                    if (goals.isNotEmpty()) {
-                        FilledTonalButton(
-                            onClick = { useExtra() },
-                            enabled = !extraUsed,
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
-                        ) {
-                            Text(
+                Column(Modifier.reveal("apps-title", 5).padding(top = 14.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        SectionTitle(tr("Tus apps", "Your apps", "Le tue app"), Modifier.weight(1f))
+                        if (goals.isNotEmpty()) {
+                            AlbaButton(
                                 if (extraUsed) tr("+5 min usados", "+5 min used", "+5 min usati")
                                 else tr("+5 min, por favor", "+5 min, please", "+5 min, per favore"),
-                                style = MaterialTheme.typography.labelLarge,
+                                onClick = { useExtra() },
+                                enabled = !extraUsed,
+                                tonal = true,
+                                padding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
                             )
                         }
                     }
-                }
-            }
-            if (goals.isNotEmpty()) {
-                item {
-                    Text(
-                        tr(
-                            "Una vez al día: 5 minutos de regalo en cada app, aunque te hayas pasado.",
-                            "Once a day: 5 bonus minutes in each app, even if you're over.",
-                            "Una volta al giorno: 5 minuti regalo in ogni app, anche se hai sforato.",
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    if (goals.isNotEmpty()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            tr(
+                                "Una vez al día: 5 minutos de regalo en cada app, aunque te hayas pasado.",
+                                "Once a day: 5 bonus minutes in each app, even if you're over.",
+                                "Una volta al giorno: 5 minuti regalo in ogni app, anche se hai sforato.",
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
 
             if (goals.isEmpty()) {
                 item {
-                    OutlinedCard(Modifier.fillMaxWidth()) {
+                    AlbaCard(Modifier.fillMaxWidth().reveal("empty", 6)) {
                         Text(
                             tr(
                                 "Todavía no has elegido ninguna app.\nPulsa «Añadir app» y decide cuánto tiempo al día le quieres dar.",
@@ -443,75 +459,86 @@ fun MainScreen(resumeTick: Int) {
                 }
             }
 
-            items(goals, key = { it.pkg }) { goal ->
-                GoalCard(
-                    goal, usage[goal.pkg] ?: 0L,
-                    blocked = goal.pkg in blockedToday,
-                    extraLeftMs = extraLeft[goal.pkg] ?: 0L,
-                    canReblock = goal.pkg in unblockedToday && goal.pkg !in blockedToday,
-                    onUnblock = { unblocking = goal },
-                    onReblock = {
-                        if (BlockerService.isWorking(context)) {
-                            store.reblockToday(goal.pkg)
-                            BlockerService.instance?.enforceNow()
-                            refresh++
-                        } else {
-                            showBlockSetup = true
-                        }
-                    },
-                ) {
-                    editingIsNew = false
-                    editing = goal
+            itemsIndexed(goals, key = { _, g -> g.pkg }) { i, goal ->
+                Box(Modifier.reveal("goal-${goal.pkg}", 6 + i)) {
+                    GoalCard(
+                        goal, usage[goal.pkg] ?: 0L,
+                        blocked = goal.pkg in blockedToday,
+                        extraLeftMs = extraLeft[goal.pkg] ?: 0L,
+                        canReblock = goal.pkg in unblockedToday && goal.pkg !in blockedToday,
+                        onUnblock = { unblocking = goal },
+                        onReblock = {
+                            if (BlockerService.isWorking(context)) {
+                                store.reblockToday(goal.pkg)
+                                BlockerService.instance?.enforceNow()
+                                refresh++
+                            } else {
+                                showBlockSetup = true
+                            }
+                        },
+                    ) {
+                        editingIsNew = false
+                        editing = goal
+                    }
                 }
             }
 
             // ---- Más: lo que no hace falta ver cada día, en una sola tarjeta tranquila
-            item { SectionTitle(tr("Más", "More", "Altro"), Modifier.padding(top = 16.dp)) }
+            item { SectionTitle(tr("Más", "More", "Altro"), Modifier.padding(top = 14.dp).reveal("more-title", 7)) }
             item {
-                OutlinedCard(Modifier.fillMaxWidth()) {
-                    if (goals.isNotEmpty()) {
-                        val autoOn = autoState.first && !autoState.second
+                AlbaCard(Modifier.fillMaxWidth().reveal("more", 8)) {
+                    Column {
+                        val divider = MaterialTheme.colorScheme.outlineVariant
+                        if (goals.isNotEmpty()) {
+                            val autoOn = autoState.first && !autoState.second
+                            SettingsRow(
+                                title = tr("Que Alba cierre la puerta", "Let Alba close the door", "Lascia che Alba chiuda la porta"),
+                                subtitle = if (autoState.second) tr("Se apaga mañana", "Turns off tomorrow", "Si spegne domani")
+                                else tr("Al llegar al límite, la app se cierra hasta mañana", "At your limit, the app closes until tomorrow", "Al limite, l'app si chiude fino a domani"),
+                                onClick = { if (autoOn) { store.setAutoBlock(false); refresh++ } else request("auto") },
+                                trailing = {
+                                    Switch(checked = autoOn, onCheckedChange = { on ->
+                                        if (on) request("auto") else {
+                                            store.setAutoBlock(false)
+                                            refresh++
+                                        }
+                                    })
+                                },
+                            )
+                            HorizontalDivider(color = divider)
+                        }
                         SettingsRow(
-                            title = tr("Que Alba cierre la puerta", "Let Alba close the door", "Lascia che Alba chiuda la porta"),
-                            subtitle = if (autoState.second) tr("Se apaga mañana", "Turns off tomorrow", "Si spegne domani")
-                            else tr("Al llegar al límite, la app se cierra hasta mañana", "At your limit, the app closes until tomorrow", "Al limite, l'app si chiude fino a domani"),
-                            onClick = { if (autoOn) { store.setAutoBlock(false); refresh++ } else request("auto") },
-                            trailing = {
-                                Switch(checked = autoOn, onCheckedChange = { on ->
-                                    if (on) request("auto") else {
-                                        store.setAutoBlock(false)
-                                        refresh++
-                                    }
-                                })
-                            },
+                            title = tr("Estilo", "Style", "Stile"),
+                            subtitle = Styles.current.label + " · " + Styles.current.description,
+                            onClick = { showStyle = true },
                         )
-                        HorizontalDivider()
-                    }
-                    SettingsRow(
-                        title = tr("¿Por qué me aburro?", "Why am I bored?", "Perché mi annoio?"),
-                        subtitle = tr("Lo que pasa en tu cabeza cuando haces scroll", "What happens in your head when you scroll", "Cosa succede nella tua testa quando scorri"),
-                        onClick = { showWhy = true },
-                    )
-                    HorizontalDivider()
-                    if (goals.isNotEmpty()) {
+                        HorizontalDivider(color = divider)
                         SettingsRow(
-                            title = tr("Que los avisos lleguen siempre", "Make sure reminders arrive", "Perché gli avvisi arrivino sempre"),
-                            subtitle = tr("Quita la optimización de batería para Alba", "Turn off battery optimization for Alba", "Disattiva l'ottimizzazione batteria per Alba"),
-                            onClick = { openSettings(context, Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS) },
+                            title = tr("¿Por qué me aburro?", "Why am I bored?", "Perché mi annoio?"),
+                            subtitle = tr("Lo que pasa en tu cabeza cuando haces scroll", "What happens in your head when you scroll", "Cosa succede nella tua testa quando scorri"),
+                            onClick = { showWhy = true },
                         )
-                        HorizontalDivider()
+                        HorizontalDivider(color = divider)
+                        if (goals.isNotEmpty()) {
+                            SettingsRow(
+                                title = tr("Que los avisos lleguen siempre", "Make sure reminders arrive", "Perché gli avvisi arrivino sempre"),
+                                subtitle = tr("Quita la optimización de batería para Alba", "Turn off battery optimization for Alba", "Disattiva l'ottimizzazione batteria per Alba"),
+                                onClick = { openSettings(context, Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS) },
+                            )
+                            HorizontalDivider(color = divider)
+                        }
+                        SettingsRow(
+                            title = tr("Idioma", "Language", "Lingua"),
+                            subtitle = Lang.current.label,
+                            onClick = { showLanguage = true },
+                        )
+                        HorizontalDivider(color = divider)
+                        SettingsRow(
+                            title = tr("Privacidad", "Privacy", "Privacy"),
+                            subtitle = tr("Alba ni siquiera tiene acceso a Internet", "Alba doesn't even have Internet access", "Alba non ha nemmeno accesso a Internet"),
+                            onClick = { showPrivacy = true },
+                        )
                     }
-                    SettingsRow(
-                        title = tr("Idioma", "Language", "Lingua"),
-                        subtitle = Lang.current.label,
-                        onClick = { showLanguage = true },
-                    )
-                    HorizontalDivider()
-                    SettingsRow(
-                        title = tr("Privacidad", "Privacy", "Privacy"),
-                        subtitle = tr("Alba ni siquiera tiene acceso a Internet", "Alba doesn't even have Internet access", "Alba non ha nemmeno accesso a Internet"),
-                        onClick = { showPrivacy = true },
-                    )
                 }
             }
         }
@@ -524,6 +551,12 @@ fun MainScreen(resumeTick: Int) {
     }
     }
     }
+    }
+
+    if (showStyle) {
+        StyleDialog(onDismiss = { showStyle = false })
+    }
+
 
     if (showPicker) {
         AppPickerDialog(
@@ -600,8 +633,8 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
     val current = kept?.streak ?: info?.current ?: 0
     val cloudy = hasGoals && (info?.todayOk == false || kept != null)
     val bright = hasGoals && !cloudy && current > 0
-    val container = if (bright) AlbaColors.Sol else MaterialTheme.colorScheme.surfaceVariant
-    val content = if (bright) AlbaColors.Noche else MaterialTheme.colorScheme.onSurface
+    val s = LocalAlbaStyle.current
+    val content = if (bright) s.onHeroBright else s.onCard
 
     val message = when {
         !hasGoals -> tr("Elige una app y cuánto tiempo al día quieres darle.", "Choose an app and how much time a day you want to give it.", "Scegli un'app e quanto tempo al giorno vuoi darle.")
@@ -621,44 +654,74 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
         else -> tr("Aguanta hasta medianoche y mañana serán ${current + 1}.", "Hold on until midnight and tomorrow it will be ${current + 1}.", "Resisti fino a mezzanotte e domani saranno ${current + 1}.")
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = container, contentColor = content),
+    val shown = tickerValue(current)
+    val heroModifier = Modifier
+        .fillMaxWidth()
+        .then(if (bright && s.borderBeam) Modifier.borderBeam(s.shape) else Modifier)
+    AlbaCard(
+        modifier = heroModifier,
+        brush = if (bright) s.heroBright else null,
+        contentColor = content,
     ) {
-        Box {
-        StreakCardDecoration(bright = bright, ink = content, modifier = Modifier.matchParentSize())
+        if (s.style != AlbaStyle.Retro) {
+            StreakCardDecoration(bright = bright, ink = content, modifier = Modifier.matchParentSize())
+        }
         Column(
             Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
+                .padding(horizontal = 24.dp, vertical = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (kept != null) {
-                LockDayIcon(Modifier.size(64.dp))
-            } else {
-                Image(
-                    painterResource(R.drawable.ic_sun),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(64.dp)
-                        .alpha(if (cloudy) 0.35f else 1f),
+            val number = @Composable {
+                Text(
+                    "$shown",
+                    fontSize = if (s.style == AlbaStyle.Retro) 76.sp else 68.sp,
+                    lineHeight = 78.sp,
+                    fontFamily = AlbaType.heading,
+                    fontWeight = FontWeight.ExtraBold,
                 )
             }
-            Text("$current", fontSize = 64.sp, lineHeight = 68.sp, fontFamily = FontFamily.Serif)
+            if (s.segmentRing && info != null && hasGoals) {
+                // Lavanda: el número dentro del anillo de la semana (estilo Anime.js)
+                Box(Modifier.size(190.dp), contentAlignment = Alignment.Center) {
+                    SegmentRing(info.week, Modifier.matchParentSize(), ink = content)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (kept != null) LockDayIcon(Modifier.size(34.dp))
+                        number()
+                    }
+                }
+            } else {
+                if (kept != null) {
+                    LockDayIcon(Modifier.size(64.dp))
+                } else {
+                    Image(
+                        painterResource(R.drawable.ic_sun),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(64.dp)
+                            .alpha(if (cloudy) 0.35f else 1f),
+                    )
+                }
+                number()
+            }
             Text(
-                if (current == 1) tr("día seguido", "day in a row", "giorno di fila") else tr("días seguidos", "days in a row", "giorni di fila"),
+                label(if (shown == 1) tr("día seguido", "day in a row", "giorno di fila") else tr("días seguidos", "days in a row", "giorni di fila")),
                 style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
             )
             if (kept != null) {
+                Spacer(Modifier.height(8.dp))
+                StreakBadge(tr("Racha guardada", "Streak kept", "Serie custodita"))
+            }
+            Spacer(Modifier.height(12.dp))
+            key(message) {
                 Text(
-                    tr("Racha guardada", "Streak kept", "Serie custodita"),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
+                    message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.reveal("msg-$message", 0),
                 )
             }
-            Spacer(Modifier.height(10.dp))
-            Text(message, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
             if (info != null && info.best > 0) {
                 Spacer(Modifier.height(6.dp))
                 Text(
@@ -668,18 +731,113 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
                 )
             }
         }
+    }
+}
+
+/** Etiqueta pequeña («Racha guardada»): píldora, o pegatina torcida en Retro. */
+@Composable
+fun StreakBadge(text: String) {
+    val s = LocalAlbaStyle.current
+    val retro = s.style == AlbaStyle.Retro
+    Box(
+        Modifier
+            .graphicsLayer { rotationZ = if (retro) -4f else 0f }
+            .clip(s.buttonShape)
+            .background(if (retro) s.alert else LocalContentColor.current.copy(alpha = 0.14f))
+            .then(if (retro && s.border != null) Modifier.border(s.border, s.buttonShape) else Modifier)
+            .padding(horizontal = 12.dp, vertical = 5.dp),
+    ) {
+        Text(
+            label(text),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = if (retro) s.onAlert else LocalContentColor.current,
+        )
+    }
+}
+
+/** Título de cada sección de la pantalla principal. */
+@Composable
+fun SectionTitle(text: String, modifier: Modifier = Modifier) {
+    Text(
+        label(text),
+        modifier = modifier,
+        style = MaterialTheme.typography.titleLarge,
+        fontFamily = AlbaType.heading,
+        fontWeight = FontWeight.Bold,
+    )
+}
+
+/** Banner para probar los tres estilos hasta quedarte con uno. */
+@Composable
+fun StylePickerCard() {
+    val context = LocalContext.current
+    AlbaCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                label(tr("Elige tu Alba", "Choose your Alba", "Scegli la tua Alba")),
+                style = MaterialTheme.typography.titleLarge,
+                fontFamily = AlbaType.heading,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                tr(
+                    "Prueba los tres estilos y quédate con el que más te guste. Luego puedes cambiarlo en «Más».",
+                    "Try the three styles and keep the one you like most. You can change it later in «More».",
+                    "Prova i tre stili e tieni quello che ti piace di più. Puoi cambiarlo dopo in «Altro».",
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AlbaStyle.entries.forEach { st ->
+                    AlbaButton(
+                        st.label,
+                        onClick = { Styles.preview(context, st) },
+                        tonal = st != Styles.current,
+                        padding = PaddingValues(horizontal = 14.dp, vertical = 9.dp),
+                    )
+                }
+            }
+            Text(
+                Styles.current.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            AlbaButton(
+                tr("Me quedo con ${Styles.current.label}", "Keep ${Styles.current.label}", "Tengo ${Styles.current.label}"),
+                onClick = { Styles.set(context, Styles.current) },
+            )
         }
     }
 }
 
-/** Título discreto de cada sección de la pantalla principal. */
+/** Cambiar de estilo desde «Más». */
 @Composable
-fun SectionTitle(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text,
-        modifier = modifier,
-        style = MaterialTheme.typography.titleMedium,
-        fontFamily = FontFamily.Serif,
+fun StyleDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(tr("Estilo", "Style", "Stile"), fontFamily = AlbaType.heading) },
+        text = {
+            Column {
+                AlbaStyle.entries.forEach { st ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { Styles.set(context, st) }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = Styles.current == st, onClick = { Styles.set(context, st) })
+                        Column {
+                            Text(st.label, style = MaterialTheme.typography.titleMedium)
+                            Text(st.description, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(tr("Listo", "Done", "Fatto")) } },
     )
 }
 
@@ -798,8 +956,13 @@ fun GoalCard(
         else -> tr("Te quedan ", "Left: ", "Ti restano ") + formatDuration(goal.limitMillis - used)
     }
 
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+    val s = LocalAlbaStyle.current
+    val retro = s.style == AlbaStyle.Retro
+    // La barra se llena al aparecer
+    val fill = remember { Animatable(0f) }
+    LaunchedEffect(fraction) { fill.animateTo(fraction, tween(900, easing = FastOutSlowInEasing)) }
+    AlbaCard(Modifier.fillMaxWidth(), onClick = onClick) {
+        Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
             AppIcon(goal.pkg, 44.dp)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
@@ -819,15 +982,23 @@ fun GoalCard(
                     )
                 }
                 Spacer(Modifier.height(8.dp))
-                LinearProgressIndicator(
-                    progress = { fraction },
-                    modifier = Modifier
+                val barShape = RoundedCornerShape(if (retro) 3.dp else 50.dp)
+                Box(
+                    Modifier
                         .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp)),
-                    color = barColor,
-                    trackColor = MaterialTheme.colorScheme.surface,
-                )
+                        .height(if (retro) 12.dp else 8.dp)
+                        .clip(barShape)
+                        .background(s.muted.copy(alpha = 0.15f))
+                        .then(if (retro && s.border != null) Modifier.border(2.dp, s.onCard, barShape) else Modifier),
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(fill.value)
+                            .clip(barShape)
+                            .background(barColor),
+                    )
+                }
                 Spacer(Modifier.height(6.dp))
                 Text(status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 goal.nextLimitMinutes?.let { next ->
@@ -837,14 +1008,15 @@ fun GoalCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (blocked) {
-                    TextButton(onClick = onUnblock, contentPadding = PaddingValues(0.dp)) {
-                        Text(tr("Desbloquear", "Unblock", "Sblocca"))
-                    }
-                } else if (canReblock) {
-                    TextButton(onClick = onReblock, contentPadding = PaddingValues(0.dp)) {
-                        Text(tr("Volver a bloquear hasta mañana", "Block again until tomorrow", "Blocca di nuovo fino a domani"))
-                    }
+                if (blocked || canReblock) {
+                    Spacer(Modifier.height(10.dp))
+                    AlbaButton(
+                        if (blocked) tr("Desbloquear", "Unblock", "Sblocca")
+                        else tr("Volver a bloquear hasta mañana", "Block again until tomorrow", "Blocca di nuovo fino a domani"),
+                        onClick = if (blocked) onUnblock else onReblock,
+                        tonal = true,
+                        padding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                    )
                 }
             }
         }
@@ -965,7 +1137,7 @@ fun AppPickerDialog(exclude: Set<String>, onDismiss: () -> Unit, onPick: (AppEnt
                 .fillMaxHeight(0.85f),
         ) {
             Column(Modifier.padding(20.dp)) {
-                Text(tr("¿Qué te quita más de lo que te da?", "What takes more from you than it gives?", "Cosa ti toglie più di quanto ti dà?"), style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
+                Text(tr("¿Qué te quita más de lo que te da?", "What takes more from you than it gives?", "Cosa ti toglie più di quanto ti dà?"), style = MaterialTheme.typography.titleLarge, fontFamily = AlbaType.heading)
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
                     value = query,
@@ -1086,14 +1258,11 @@ fun LimitDialog(
 @Composable
 fun SaveStreakCard(apps: List<Goal>, canSave: Boolean, saveLeftMillis: Long, onSave: () -> Unit) {
     val names = apps.joinToString(tr(" y ", " and ", " e ")) { it.label }
-    Card(
-        Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = AlbaColors.Bruma, contentColor = AlbaColors.Arena),
-    ) {
+    val s = LocalAlbaStyle.current
+    AlbaCard(Modifier.fillMaxWidth(), container = s.alert, contentColor = s.onAlert) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (!canSave) {
-                Text(tr("Hoy ya no se puede salvar", "It can't be saved today", "Oggi non si può più salvare"), style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
+                Text(tr("Hoy ya no se puede salvar", "It can't be saved today", "Oggi non si può più salvare"), style = MaterialTheme.typography.titleLarge, fontFamily = AlbaType.heading)
                 Text(
                     tr(
                         "Te has pasado más de 15 minutos con $names. Esta racha se ha perdido, pero mañana vuelve a salir el sol.",
@@ -1103,7 +1272,7 @@ fun SaveStreakCard(apps: List<Goal>, canSave: Boolean, saveLeftMillis: Long, onS
                     style = MaterialTheme.typography.bodyMedium,
                 )
             } else {
-            Text(tr("¿Salvar tu racha?", "Save your streak?", "Salvare la tua serie?"), style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
+            Text(tr("¿Salvar tu racha?", "Save your streak?", "Salvare la tua serie?"), style = MaterialTheme.typography.titleLarge, fontFamily = AlbaType.heading)
             Text(
                 tr(
                     "Cierra $names hasta mañana y hoy seguirá contando: medio sol.",
@@ -1121,10 +1290,7 @@ fun SaveStreakCard(apps: List<Goal>, canSave: Boolean, saveLeftMillis: Long, onS
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.SemiBold,
             )
-            Button(
-                onClick = onSave,
-                colors = ButtonDefaults.buttonColors(containerColor = AlbaColors.Sol, contentColor = AlbaColors.Noche),
-            ) { Text(tr("Cerrar $names hasta mañana", "Close $names until tomorrow", "Chiudi $names fino a domani")) }
+            AlbaButton(tr("Cerrar $names hasta mañana", "Close $names until tomorrow", "Chiudi $names fino a domani"), onClick = onSave)
             }
         }
     }
@@ -1132,16 +1298,13 @@ fun SaveStreakCard(apps: List<Goal>, canSave: Boolean, saveLeftMillis: Long, onS
 
 @Composable
 fun BlockerNeededCard(stuck: Boolean, onFix: () -> Unit) {
-    Card(
-        Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = AlbaColors.Alba, contentColor = AlbaColors.Noche),
-    ) {
+    val s = LocalAlbaStyle.current
+    AlbaCard(Modifier.fillMaxWidth(), container = s.warn, contentColor = s.onWarn) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(
                 tr("Alba no puede cerrar tus apps", "Alba can't close your apps", "Alba non può chiudere le tue app"),
                 style = MaterialTheme.typography.titleLarge,
-                fontFamily = FontFamily.Serif,
+                fontFamily = AlbaType.heading,
             )
             if (stuck) Text(
                 tr(
@@ -1158,10 +1321,7 @@ fun BlockerNeededCard(stuck: Boolean, onFix: () -> Unit) {
                 ),
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Button(
-                onClick = onFix,
-                colors = ButtonDefaults.buttonColors(containerColor = AlbaColors.Noche, contentColor = AlbaColors.Arena),
-            ) { Text(tr("Activar el bloqueo", "Turn on blocking", "Attiva il blocco")) }
+            AlbaButton(tr("Activar el bloqueo", "Turn on blocking", "Attiva il blocco"), onClick = onFix)
         }
     }
 }
@@ -1197,16 +1357,13 @@ fun RecoveryCard(recovery: Recovery, names: List<String>, isTrialDay: Boolean) {
             ),
         )
     }
-    Card(
-        Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = AlbaColors.Noche, contentColor = AlbaColors.Arena),
-    ) {
+    val s = LocalAlbaStyle.current
+    AlbaCard(Modifier.fillMaxWidth(), container = s.alert, contentColor = s.onAlert) {
         Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
             LockDayIcon(Modifier.size(56.dp))
             Spacer(Modifier.width(14.dp))
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(title, style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
+                Text(title, style = MaterialTheme.typography.titleLarge, fontFamily = AlbaType.heading)
                 Text(body, style = MaterialTheme.typography.bodyMedium)
             }
         }
@@ -1218,7 +1375,7 @@ fun BlockSetupDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(tr("Un permiso más", "One more permission", "Un'altra autorizzazione"), fontFamily = FontFamily.Serif) },
+        title = { Text(tr("Un permiso más", "One more permission", "Un'altra autorizzazione"), fontFamily = AlbaType.heading) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(

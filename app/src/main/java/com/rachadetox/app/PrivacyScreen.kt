@@ -52,7 +52,7 @@ fun PrivacyScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             TextButton(onClick = onBack) { Text(tr("← Volver", "← Back", "← Indietro")) }
-            Text(tr("Tus datos son tuyos", "Your data is yours", "I tuoi dati sono tuoi"), style = MaterialTheme.typography.headlineMedium, fontFamily = FontFamily.Serif)
+            Text(tr("Tus datos son tuyos", "Your data is yours", "I tuoi dati sono tuoi"), style = MaterialTheme.typography.headlineMedium, fontFamily = AlbaType.heading)
 
             // El compromiso
             Card(
@@ -68,7 +68,7 @@ fun PrivacyScreen(onBack: () -> Unit) {
                             "Alba non vende, non condivide e non invia i tuoi dati a nessuno. Mai.",
                         ),
                         style = MaterialTheme.typography.titleLarge,
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = AlbaType.heading,
                     )
                     Text(
                         tr(
@@ -162,7 +162,7 @@ fun PrivacyScreen(onBack: () -> Unit) {
 private fun PrivacyBlock(title: String, lines: List<String>) {
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontFamily = FontFamily.Serif)
+            Text(title, style = MaterialTheme.typography.titleMedium, fontFamily = AlbaType.heading)
             lines.forEach { line ->
                 Row {
                     Text("·  ", color = AlbaColors.Alba, style = MaterialTheme.typography.bodyLarge)

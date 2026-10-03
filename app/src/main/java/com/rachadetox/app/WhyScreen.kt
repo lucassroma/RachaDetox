@@ -83,7 +83,7 @@ fun WhyScreen(onBack: () -> Unit) {
                 Text(
                     tr("¿Por qué me aburro?", "Why am I bored?", "Perché mi annoio?"),
                     style = MaterialTheme.typography.headlineMedium,
-                    fontFamily = FontFamily.Serif,
+                    fontFamily = AlbaType.heading,
                     textAlign = TextAlign.Center,
                 )
                 Spacer(Modifier.height(6.dp))
@@ -237,7 +237,7 @@ fun WhyScreen(onBack: () -> Unit) {
                             "Ogni giorno della tua serie è un giorno in cui l'asticella si abbassa.",
                         ),
                         style = MaterialTheme.typography.titleLarge,
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = AlbaType.heading,
                         textAlign = TextAlign.Center,
                     )
                     Spacer(Modifier.height(16.dp))
@@ -289,7 +289,7 @@ private fun InfoCard(step: String, title: String, body: String, art: @Composable
                 fontFamily = FontFamily.Monospace,
                 style = MaterialTheme.typography.titleMedium,
             )
-            Text(title, style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
+            Text(title, style = MaterialTheme.typography.titleLarge, fontFamily = AlbaType.heading)
             art()
             Text(body, style = MaterialTheme.typography.bodyLarge, lineHeight = 24.sp)
         }
@@ -299,7 +299,7 @@ private fun InfoCard(step: String, title: String, body: String, art: @Composable
 @Composable
 private fun BigStat(value: String, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, fontSize = 44.sp, fontFamily = FontFamily.Serif, color = AlbaColors.Alba)
+        Text(value, fontSize = 44.sp, fontFamily = AlbaType.heading, color = AlbaColors.Alba)
         Text(label, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
     }
 }

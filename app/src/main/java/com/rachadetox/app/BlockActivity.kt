@@ -59,7 +59,7 @@ class BlockActivity : ComponentActivity() {
                     Text(
                         tr("Hasta mañana.", "See you tomorrow.", "A domani."),
                         color = AlbaColors.Arena,
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = AlbaType.heading,
                         fontSize = 34.sp,
                         textAlign = TextAlign.Center,
                     )

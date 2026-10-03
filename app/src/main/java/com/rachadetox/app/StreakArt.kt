@@ -346,7 +346,7 @@ fun StreakAnimationOverlay(anim: StreakAnim, onDone: () -> Unit) {
                 Text(
                     "$shown",
                     color = lerp(AlbaColors.Sol, CloudLight, p),
-                    fontFamily = FontFamily.Serif,
+                    fontFamily = AlbaType.heading,
                     fontSize = 120.sp,
                     lineHeight = 124.sp,
                 )
@@ -369,7 +369,7 @@ fun StreakAnimationOverlay(anim: StreakAnim, onDone: () -> Unit) {
             Text(
                 title,
                 color = AlbaColors.Arena.copy(alpha = textAlpha),
-                fontFamily = FontFamily.Serif,
+                fontFamily = AlbaType.heading,
                 fontSize = 32.sp,
                 textAlign = TextAlign.Center,
             )

@@ -47,7 +47,7 @@ fun LanguagePicker(onPick: (AppLang) -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Image(painterResource(R.drawable.ic_sun), contentDescription = null, modifier = Modifier.size(96.dp))
-        Text("alba", color = AlbaColors.Arena, fontFamily = FontFamily.Serif, fontSize = 40.sp)
+        Text("alba", color = AlbaColors.Arena, fontFamily = AlbaType.heading, fontSize = 40.sp)
         Spacer(Modifier.height(24.dp))
         Text(
             "Elige tu idioma\nChoose your language\nScegli la lingua",
@@ -81,7 +81,7 @@ fun LanguagePicker(onPick: (AppLang) -> Unit) {
 fun LanguageDialog(onDismiss: () -> Unit, onPick: (AppLang) -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(tr("Idioma", "Language", "Lingua"), fontFamily = FontFamily.Serif) },
+        title = { Text(tr("Idioma", "Language", "Lingua"), fontFamily = AlbaType.heading) },
         text = {
             Column {
                 AppLang.entries.forEach { lang ->

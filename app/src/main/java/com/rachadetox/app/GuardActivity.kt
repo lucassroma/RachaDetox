@@ -62,7 +62,7 @@ class GuardActivity : ComponentActivity() {
                     Text(
                         tr("¿Seguro que quieres seguir?", "Are you sure you want to continue?", "Sei sicuro di voler continuare?"),
                         color = AlbaColors.Arena,
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = AlbaType.heading,
                         fontSize = 30.sp,
                         lineHeight = 36.sp,
                         textAlign = TextAlign.Center,

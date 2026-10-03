@@ -92,7 +92,7 @@ fun ProfileScreen(goals: List<Goal>, onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             TextButton(onClick = onBack) { Text(tr("← Volver", "← Back", "← Indietro")) }
-            Text(tr("Tu perfil", "Your profile", "Il tuo profilo"), style = MaterialTheme.typography.headlineMedium, fontFamily = FontFamily.Serif)
+            Text(tr("Tu perfil", "Your profile", "Il tuo profilo"), style = MaterialTheme.typography.headlineMedium, fontFamily = AlbaType.heading)
 
             val r = report
             if (r == null) {
@@ -215,7 +215,7 @@ private fun FreedomCard(r: ProfileReport) {
             )
             Spacer(Modifier.width(14.dp))
             Column {
-                Text(title, style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
+                Text(title, style = MaterialTheme.typography.titleLarge, fontFamily = AlbaType.heading)
                 Spacer(Modifier.height(4.dp))
                 Text(sub, style = MaterialTheme.typography.bodyMedium)
             }
@@ -263,7 +263,7 @@ private fun ScrollCard(r: ProfileReport, weekMode: Boolean) {
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(if (weekMode) tr("Estos 7 días", "These 7 days", "Questi 7 giorni") else tr("Hoy", "Today", "Oggi"), style = MaterialTheme.typography.labelLarge, color = AlbaColors.Alba)
-            Text("≈ ${num(videos)} " + tr("vídeos", "videos", "video"), fontSize = 40.sp, fontFamily = FontFamily.Serif)
+            Text("≈ ${num(videos)} " + tr("vídeos", "videos", "video"), fontSize = 40.sp, fontFamily = AlbaType.heading)
             Text(
                 tr(
                     "Has deslizado unos ${num(meters.toLong())} metros con el pulgar: ${distancePhrase(meters)}.",
@@ -337,7 +337,7 @@ private fun HabitsCard(r: ProfileReport) {
 
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(tr("Tus costumbres", "Your habits", "Le tue abitudini"), style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
+            Text(tr("Tus costumbres", "Your habits", "Le tue abitudini"), style = MaterialTheme.typography.titleLarge, fontFamily = AlbaType.heading)
             lines.forEach { line ->
                 Row {
                     Text("·  ", color = AlbaColors.Alba, style = MaterialTheme.typography.bodyLarge)
@@ -357,7 +357,7 @@ private fun EquivalentsCard(r: ProfileReport) {
                 Text(
                     tr("Menos de una hora de scroll esta semana.", "Less than an hour of scrolling this week.", "Meno di un'ora di scroll questa settimana."),
                     style = MaterialTheme.typography.titleLarge,
-                    fontFamily = FontFamily.Serif,
+                    fontFamily = AlbaType.heading,
                 )
                 Text(tr("Eso es mirar arriba.", "That's looking up.", "Questo è guardare in alto."), style = MaterialTheme.typography.bodyLarge)
             } else {
@@ -368,7 +368,7 @@ private fun EquivalentsCard(r: ProfileReport) {
                         "Con le ${formatDuration(r.scrollWeekMs)} di questa settimana avresti potuto…",
                     ),
                     style = MaterialTheme.typography.titleLarge,
-                    fontFamily = FontFamily.Serif,
+                    fontFamily = AlbaType.heading,
                 )
                 items.forEach { item ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
