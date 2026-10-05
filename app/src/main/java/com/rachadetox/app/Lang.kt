@@ -64,6 +64,5 @@ class AlbaApp : Application() {
     override fun onCreate() {
         super.onCreate()
         Lang.init(this)
-        Styles.init(this)
     }
 }

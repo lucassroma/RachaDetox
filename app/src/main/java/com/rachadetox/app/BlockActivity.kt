@@ -76,10 +76,7 @@ class BlockActivity : ComponentActivity() {
                         textAlign = TextAlign.Center,
                     )
                     Spacer(Modifier.height(36.dp))
-                    Button(
-                        onClick = { goHome() },
-                        colors = ButtonDefaults.buttonColors(containerColor = AlbaColors.Sol, contentColor = AlbaColors.Noche),
-                    ) { Text(tr("Mira arriba", "Look up", "Guarda in alto")) }
+                    AlbaButton(tr("Mira arriba", "Look up", "Guarda in alto"), onClick = { goHome() })
                 }
             }
         }

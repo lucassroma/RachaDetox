@@ -80,10 +80,7 @@ class GuardActivity : ComponentActivity() {
                         textAlign = TextAlign.Center,
                     )
                     Spacer(Modifier.height(36.dp))
-                    Button(
-                        onClick = { goHome() },
-                        colors = ButtonDefaults.buttonColors(containerColor = AlbaColors.Sol, contentColor = AlbaColors.Noche),
-                    ) { Text(tr("No, quiero mi racha", "No, I want my streak", "No, voglio la mia serie")) }
+                    AlbaButton(tr("No, quiero mi racha", "No, I want my streak", "No, voglio la mia serie"), onClick = { goHome() })
                     Spacer(Modifier.height(8.dp))
                     TextButton(onClick = { continueTo(pkg) }) {
                         Text(

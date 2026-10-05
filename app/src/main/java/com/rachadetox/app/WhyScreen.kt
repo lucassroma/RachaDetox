@@ -241,10 +241,7 @@ fun WhyScreen(onBack: () -> Unit) {
                         textAlign = TextAlign.Center,
                     )
                     Spacer(Modifier.height(16.dp))
-                    Button(
-                        onClick = onBack,
-                        colors = ButtonDefaults.buttonColors(containerColor = AlbaColors.Noche, contentColor = AlbaColors.Arena),
-                    ) { Text(tr("Mira arriba", "Look up", "Guarda in alto")) }
+                    AlbaButton(tr("Mira arriba", "Look up", "Guarda in alto"), onClick = onBack)
                 }
             }
 

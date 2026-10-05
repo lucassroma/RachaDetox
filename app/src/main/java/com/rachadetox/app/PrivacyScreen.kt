@@ -106,12 +106,10 @@ fun PrivacyScreen(onBack: () -> Unit) {
                 ),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(onClick = {
+                AlbaButton(tr("Ver en Ajustes", "See in Settings", "Vedi in Impostazioni"), tonal = true, onClick = {
                     open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName)))
-                }) { Text(tr("Ver en Ajustes", "See in Settings", "Vedi in Impostazioni")) }
-                OutlinedButton(onClick = { open(Intent(Intent.ACTION_VIEW, Uri.parse(REPO_URL))) }) {
-                    Text(tr("Ver el código", "See the code", "Vedi il codice"))
-                }
+                })
+                AlbaButton(tr("Ver el código", "See the code", "Vedi il codice"), tonal = true, onClick = { open(Intent(Intent.ACTION_VIEW, Uri.parse(REPO_URL))) })
             }
 
             PrivacyBlock(

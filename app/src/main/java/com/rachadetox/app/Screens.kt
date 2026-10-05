@@ -1,5 +1,6 @@
 package com.rachadetox.app
 
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -160,11 +161,9 @@ fun PermissionScreen() {
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(24.dp))
-            Button(onClick = {
+            AlbaButton(tr("Dar permiso", "Grant permission", "Concedi autorizzazione"), onClick = {
                 openSettings(context, Settings.ACTION_USAGE_ACCESS_SETTINGS)
-            }) {
-                Text(tr("Dar permiso", "Grant permission", "Concedi autorizzazione"))
-            }
+            })
         }
     }
 }
@@ -195,7 +194,6 @@ fun MainScreen(resumeTick: Int) {
     var showProfile by rememberSaveable { mutableStateOf(false) }
     var showPrivacy by rememberSaveable { mutableStateOf(false) }
     var showLanguage by remember { mutableStateOf(false) }
-    var showStyle by remember { mutableStateOf(false) }
     var refresh by remember { mutableIntStateOf(0) }
     var showBlockSetup by remember { mutableStateOf(false) }
     var pendingAction by rememberSaveable { mutableStateOf<String?>(null) }
@@ -339,7 +337,6 @@ fun MainScreen(resumeTick: Int) {
     MoodTheme(moodCloud, moodSaved) {
     CompositionLocalProvider(LocalRevealed provides revealed) {
     StyleBackground(moodCloud, moodSaved) {
-    val ringHero = LocalAlbaStyle.current.segmentRing
     Scaffold(
         containerColor = Color.Transparent,
         floatingActionButton = {
@@ -364,7 +361,7 @@ fun MainScreen(resumeTick: Int) {
                 Row(Modifier.reveal("header", 0), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(
-                            label("alba"),
+                            "alba",
                             style = MaterialTheme.typography.headlineLarge,
                             fontFamily = AlbaType.heading,
                             fontWeight = FontWeight.ExtraBold,
@@ -385,14 +382,11 @@ fun MainScreen(resumeTick: Int) {
             }
 
             // ---- Elegir estilo (hasta que te quedes con uno)
-            if (!Styles.hasChosen) {
-                item { Box(Modifier.reveal("styles", 1)) { StylePickerCard() } }
-            }
 
             // ---- La racha y la semana
             item { Box(Modifier.reveal("hero", 2)) { StreakCard(info, hasGoals = goals.isNotEmpty()) } }
             val currentInfo = info
-            if (goals.isNotEmpty() && currentInfo != null && !ringHero) {
+            if (goals.isNotEmpty() && currentInfo != null) {
                 item { Box(Modifier.reveal("week", 3)) { WeekStrip(currentInfo.week) } }
             }
 
@@ -508,12 +502,6 @@ fun MainScreen(resumeTick: Int) {
                             HorizontalDivider(color = divider)
                         }
                         SettingsRow(
-                            title = tr("Estilo", "Style", "Stile"),
-                            subtitle = Styles.current.label + " · " + Styles.current.description,
-                            onClick = { showStyle = true },
-                        )
-                        HorizontalDivider(color = divider)
-                        SettingsRow(
                             title = tr("¿Por qué me aburro?", "Why am I bored?", "Perché mi annoio?"),
                             subtitle = tr("Lo que pasa en tu cabeza cuando haces scroll", "What happens in your head when you scroll", "Cosa succede nella tua testa quando scorri"),
                             onClick = { showWhy = true },
@@ -553,9 +541,6 @@ fun MainScreen(resumeTick: Int) {
     }
     }
 
-    if (showStyle) {
-        StyleDialog(onDismiss = { showStyle = false })
-    }
 
 
     if (showPicker) {
@@ -655,57 +640,38 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
     }
 
     val shown = tickerValue(current)
-    val heroModifier = Modifier
-        .fillMaxWidth()
-        .then(if (bright && s.borderBeam) Modifier.borderBeam(s.shape) else Modifier)
     AlbaCard(
-        modifier = heroModifier,
+        modifier = Modifier.fillMaxWidth(),
         brush = if (bright) s.heroBright else null,
         contentColor = content,
     ) {
-        if (s.style != AlbaStyle.Retro) {
-            StreakCardDecoration(bright = bright, ink = content, modifier = Modifier.matchParentSize())
-        }
+        StreakCardDecoration(bright = bright, ink = content, modifier = Modifier.matchParentSize())
         Column(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            val number = @Composable {
-                Text(
-                    "$shown",
-                    fontSize = if (s.style == AlbaStyle.Retro) 76.sp else 68.sp,
-                    lineHeight = 78.sp,
-                    fontFamily = AlbaType.heading,
-                    fontWeight = FontWeight.ExtraBold,
+            if (kept != null) {
+                LockDayIcon(Modifier.size(64.dp))
+            } else {
+                Image(
+                    painterResource(R.drawable.ic_sun),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(64.dp)
+                        .alpha(if (cloudy) 0.35f else 1f),
                 )
             }
-            if (s.segmentRing && info != null && hasGoals) {
-                // Lavanda: el número dentro del anillo de la semana (estilo Anime.js)
-                Box(Modifier.size(190.dp), contentAlignment = Alignment.Center) {
-                    SegmentRing(info.week, Modifier.matchParentSize(), ink = content)
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        if (kept != null) LockDayIcon(Modifier.size(34.dp))
-                        number()
-                    }
-                }
-            } else {
-                if (kept != null) {
-                    LockDayIcon(Modifier.size(64.dp))
-                } else {
-                    Image(
-                        painterResource(R.drawable.ic_sun),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(64.dp)
-                            .alpha(if (cloudy) 0.35f else 1f),
-                    )
-                }
-                number()
-            }
             Text(
-                label(if (shown == 1) tr("día seguido", "day in a row", "giorno di fila") else tr("días seguidos", "days in a row", "giorni di fila")),
+                "$shown",
+                fontSize = 68.sp,
+                lineHeight = 78.sp,
+                fontFamily = AlbaType.heading,
+                fontWeight = FontWeight.ExtraBold,
+            )
+            Text(
+                (if (shown == 1) tr("día seguido", "day in a row", "giorno di fila") else tr("días seguidos", "days in a row", "giorni di fila")),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -734,24 +700,21 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
     }
 }
 
-/** Etiqueta pequeña («Racha guardada»): píldora, o pegatina torcida en Retro. */
+/** Etiqueta pequeña («Racha guardada») en forma de píldora de cristal. */
 @Composable
 fun StreakBadge(text: String) {
     val s = LocalAlbaStyle.current
-    val retro = s.style == AlbaStyle.Retro
     Box(
         Modifier
-            .graphicsLayer { rotationZ = if (retro) -4f else 0f }
             .clip(s.buttonShape)
-            .background(if (retro) s.alert else LocalContentColor.current.copy(alpha = 0.14f))
-            .then(if (retro && s.border != null) Modifier.border(s.border, s.buttonShape) else Modifier)
+            .background(LocalContentColor.current.copy(alpha = 0.12f))
+            .border(s.glassBorder, s.buttonShape)
             .padding(horizontal = 12.dp, vertical = 5.dp),
     ) {
         Text(
-            label(text),
+            text,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
-            color = if (retro) s.onAlert else LocalContentColor.current,
         )
     }
 }
@@ -760,84 +723,11 @@ fun StreakBadge(text: String) {
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(
-        label(text),
+        text,
         modifier = modifier,
         style = MaterialTheme.typography.titleLarge,
         fontFamily = AlbaType.heading,
-        fontWeight = FontWeight.Bold,
-    )
-}
-
-/** Banner para probar los tres estilos hasta quedarte con uno. */
-@Composable
-fun StylePickerCard() {
-    val context = LocalContext.current
-    AlbaCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(
-                label(tr("Elige tu Alba", "Choose your Alba", "Scegli la tua Alba")),
-                style = MaterialTheme.typography.titleLarge,
-                fontFamily = AlbaType.heading,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                tr(
-                    "Prueba los tres estilos y quédate con el que más te guste. Luego puedes cambiarlo en «Más».",
-                    "Try the three styles and keep the one you like most. You can change it later in «More».",
-                    "Prova i tre stili e tieni quello che ti piace di più. Puoi cambiarlo dopo in «Altro».",
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AlbaStyle.entries.forEach { st ->
-                    AlbaButton(
-                        st.label,
-                        onClick = { Styles.preview(context, st) },
-                        tonal = st != Styles.current,
-                        padding = PaddingValues(horizontal = 14.dp, vertical = 9.dp),
-                    )
-                }
-            }
-            Text(
-                Styles.current.description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            AlbaButton(
-                tr("Me quedo con ${Styles.current.label}", "Keep ${Styles.current.label}", "Tengo ${Styles.current.label}"),
-                onClick = { Styles.set(context, Styles.current) },
-            )
-        }
-    }
-}
-
-/** Cambiar de estilo desde «Más». */
-@Composable
-fun StyleDialog(onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(tr("Estilo", "Style", "Stile"), fontFamily = AlbaType.heading) },
-        text = {
-            Column {
-                AlbaStyle.entries.forEach { st ->
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable { Styles.set(context, st) }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(selected = Styles.current == st, onClick = { Styles.set(context, st) })
-                        Column {
-                            Text(st.label, style = MaterialTheme.typography.titleMedium)
-                            Text(st.description, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(tr("Listo", "Done", "Fatto")) } },
+        fontWeight = FontWeight.SemiBold,
     )
 }
 
@@ -942,11 +832,6 @@ fun GoalCard(
 ) {
     val fraction = (used.toFloat() / goal.limitMillis).coerceIn(0f, 1f)
     val over = goal.isOver(used)
-    val barColor = when {
-        over -> Muted
-        fraction >= 0.8f -> Amber
-        else -> Green
-    }
     val status = when {
         extraLeftMs > 0L && (blocked || over) ->
             tr("Minutos de regalo: te quedan ", "Bonus minutes: ", "Minuti regalo: ti restano ") + formatDuration(extraLeftMs)
@@ -957,7 +842,6 @@ fun GoalCard(
     }
 
     val s = LocalAlbaStyle.current
-    val retro = s.style == AlbaStyle.Retro
     // La barra se llena al aparecer
     val fill = remember { Animatable(0f) }
     LaunchedEffect(fraction) { fill.animateTo(fraction, tween(900, easing = FastOutSlowInEasing)) }
@@ -982,21 +866,26 @@ fun GoalCard(
                     )
                 }
                 Spacer(Modifier.height(8.dp))
-                val barShape = RoundedCornerShape(if (retro) 3.dp else 50.dp)
+                // Barra en los colores de siempre: naranja mientras vas bien, gris si te pasas
+                val barShape = RoundedCornerShape(50)
+                val barBrush = when {
+                    over -> Brush.linearGradient(listOf(s.muted, s.muted))
+                    fraction >= 0.8f -> Brush.linearGradient(listOf(AlbaColors.Alba, Color(0xFFE07A50)))
+                    else -> Brush.linearGradient(listOf(AlbaColors.Sol, AlbaColors.Alba))
+                }
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .height(if (retro) 12.dp else 8.dp)
+                        .height(8.dp)
                         .clip(barShape)
-                        .background(s.muted.copy(alpha = 0.15f))
-                        .then(if (retro && s.border != null) Modifier.border(2.dp, s.onCard, barShape) else Modifier),
+                        .background(s.muted.copy(alpha = 0.15f)),
                 ) {
                     Box(
                         Modifier
                             .fillMaxHeight()
                             .fillMaxWidth(fill.value)
                             .clip(barShape)
-                            .background(barColor),
+                            .background(barBrush),
                     )
                 }
                 Spacer(Modifier.height(6.dp))

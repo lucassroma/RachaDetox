@@ -61,12 +61,6 @@ fun MoodTheme(cloud: Float, saved: Boolean, content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = scheme, typography = MaterialTheme.typography, shapes = MaterialTheme.shapes, content = content)
 }
 
-/** Tema de Alba: colores, letras y formas del estilo elegido (Aurora, Lavanda o Retro). */
+/** Tema de Alba: cristal líquido con naranja, blanco y gris (ver Style.kt). */
 @Composable
-fun AlbaTheme(content: @Composable () -> Unit) {
-    val style = Styles.current
-    val spec = androidx.compose.runtime.remember(style) { specFor(style) }
-    CompositionLocalProvider(LocalAlbaStyle provides spec) {
-        MaterialTheme(colorScheme = spec.scheme, typography = typographyFor(spec.body), content = content)
-    }
-}
+fun AlbaTheme(content: @Composable () -> Unit) = AlbaStyleProvider(content)
