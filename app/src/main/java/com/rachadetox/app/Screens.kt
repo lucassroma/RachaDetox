@@ -622,8 +622,16 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
     val current = kept?.streak ?: info?.current ?: 0
     val cloudy = hasGoals && (info?.todayOk == false || kept != null)
     val bright = hasGoals && !cloudy && current > 0
+    // Racha perdida (ya no se puede salvar, guardada o perdida del todo): cristal azul,
+    // el color opuesto al naranja de Alba
+    val lost = hasGoals && info != null &&
+        (kept != null || info.recovery?.forfeited == true || (!info.todayOk && !info.canSave))
     val s = LocalAlbaStyle.current
-    val content = if (bright) s.onHeroBright else s.onCard
+    val content = when {
+        bright -> s.onHeroBright
+        lost -> s.onHeroLost
+        else -> s.onCard
+    }
 
     val message = when {
         !hasGoals -> tr("Elige una app y cuánto tiempo al día quieres darle.", "Choose an app and how much time a day you want to give it.", "Scegli un'app e quanto tempo al giorno vuoi darle.")
@@ -646,7 +654,11 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
     val shown = tickerValue(current)
     AlbaCard(
         modifier = Modifier.fillMaxWidth(),
-        brush = if (bright) s.heroBright else null,
+        brush = when {
+            bright -> s.heroBright
+            lost -> s.heroLost
+            else -> null
+        },
         contentColor = content,
     ) {
         StreakCardDecoration(bright = bright, ink = content, modifier = Modifier.matchParentSize())

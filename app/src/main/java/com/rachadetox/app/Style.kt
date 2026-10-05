@@ -93,6 +93,9 @@ data class StyleSpec(
     // Panel de la racha cuando brilla
     val heroBright: Brush,
     val onHeroBright: Color,
+    // Panel de la racha cuando la has perdido: el azul opuesto al naranja (círculo cromático)
+    val heroLost: Brush,
+    val onHeroLost: Color,
     // Avisos
     val alert: Color,
     val onAlert: Color,
@@ -120,6 +123,11 @@ private val Gris = Color(0xFF6B6B73)
 private val GrisClaro = Color(0xFFB9B9C0)
 private val Blanco = Color(0xFFF7F5F2)         // blanco cálido
 private val Carbon = Color(0xFF141416)          // fondo oscuro
+
+// Opuesto del naranja en el círculo cromático: F28A3E (tono 25°) → 3EA6F2 (tono 205°).
+// En modo oscuro, el opuesto del naranja tostado B85E22 → 227CB8.
+private val AzulOpuesto = Color(0xFF3EA6F2)
+private val AzulOpuestoOscuro = Color(0xFF227CB8)
 
 fun specFor(dark: Boolean): StyleSpec = if (!dark) {
     StyleSpec(
@@ -151,6 +159,8 @@ fun specFor(dark: Boolean): StyleSpec = if (!dark) {
         ),
         onCard = Tinta, muted = Gris,
         heroBright = SolidColor(Color.White.copy(alpha = 0.86f)),
+        heroLost = Brush.verticalGradient(listOf(AzulOpuesto.copy(alpha = 0.90f), AzulOpuesto.copy(alpha = 0.74f))),
+        onHeroLost = Tinta,
         onHeroBright = Tinta,
         alert = Color(0xFF2A2A2E).copy(alpha = 0.92f), onAlert = Blanco,
         warn = Naranja.copy(alpha = 0.92f), onWarn = Tinta,
@@ -189,6 +199,8 @@ fun specFor(dark: Boolean): StyleSpec = if (!dark) {
         ),
         onCard = Blanco, muted = GrisClaro,
         heroBright = SolidColor(Color.White.copy(alpha = 0.14f)),
+        heroLost = Brush.verticalGradient(listOf(AzulOpuestoOscuro.copy(alpha = 0.92f), AzulOpuestoOscuro.copy(alpha = 0.78f))),
+        onHeroLost = Blanco,
         onHeroBright = Blanco,
         alert = Color(0xFF2C2C31).copy(alpha = 0.95f), onAlert = Blanco,
         warn = Naranja.copy(alpha = 0.92f), onWarn = Tinta,
