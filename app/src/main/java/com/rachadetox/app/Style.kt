@@ -54,6 +54,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.ExperimentalTextApi
@@ -112,8 +113,8 @@ private val Manrope by lazy { variable(R.font.manrope, listOf(400, 500, 600, 700
 private val Fraunces by lazy { variable(R.font.fraunces, listOf(400, 500, 600, 700)) }
 
 // Colores de siempre
-private val Naranja = AlbaColors.Alba          // F2A48A
-private val NaranjaSol = AlbaColors.Sol        // F6C667
+private val Naranja = AlbaColors.Sol           // el naranja de Alba
+private val NaranjaSuave = AlbaColors.Alba    // el mismo naranja, más claro
 private val Tinta = Color(0xFF1F1F23)          // casi negro
 private val Gris = Color(0xFF6B6B73)
 private val GrisClaro = Color(0xFFB9B9C0)
@@ -125,9 +126,9 @@ fun specFor(dark: Boolean): StyleSpec = if (!dark) {
         dark = false,
         scheme = lightColorScheme(
             primary = Tinta, onPrimary = Blanco,
-            primaryContainer = NaranjaSol, onPrimaryContainer = Tinta,
+            primaryContainer = Naranja, onPrimaryContainer = Tinta,
             secondary = Naranja, onSecondary = Tinta,
-            secondaryContainer = Color(0xFFF6E3DA), onSecondaryContainer = Tinta,
+            secondaryContainer = Color(0xFFFBE3D3), onSecondaryContainer = Tinta,
             tertiary = AlbaColors.Salvia,
             background = Blanco, onBackground = Tinta,
             surface = Blanco, onSurface = Tinta,
@@ -149,12 +150,12 @@ fun specFor(dark: Boolean): StyleSpec = if (!dark) {
             Brush.linearGradient(listOf(Color.White, Color.White.copy(alpha = 0.35f), GrisClaro.copy(alpha = 0.35f))),
         ),
         onCard = Tinta, muted = Gris,
-        heroBright = Brush.linearGradient(listOf(NaranjaSol, Naranja)),
+        heroBright = SolidColor(Naranja),
         onHeroBright = Tinta,
         alert = Color(0xFF2A2A2E).copy(alpha = 0.92f), onAlert = Blanco,
         warn = Naranja.copy(alpha = 0.92f), onWarn = Tinta,
         buttonShape = RoundedCornerShape(50),
-        button = Brush.linearGradient(listOf(NaranjaSol, Naranja)),
+        button = SolidColor(Naranja),
         onButton = Tinta,
         onTonal = Tinta,
     )
@@ -162,8 +163,8 @@ fun specFor(dark: Boolean): StyleSpec = if (!dark) {
     StyleSpec(
         dark = true,
         scheme = darkColorScheme(
-            primary = NaranjaSol, onPrimary = Tinta,
-            primaryContainer = NaranjaSol, onPrimaryContainer = Tinta,
+            primary = Naranja, onPrimary = Tinta,
+            primaryContainer = Naranja, onPrimaryContainer = Tinta,
             secondary = Naranja, onSecondary = Tinta,
             secondaryContainer = Color(0xFF2C2C31), onSecondaryContainer = Blanco,
             tertiary = AlbaColors.Salvia,
@@ -187,12 +188,12 @@ fun specFor(dark: Boolean): StyleSpec = if (!dark) {
             Brush.linearGradient(listOf(Color.White.copy(alpha = 0.30f), Color.White.copy(alpha = 0.06f), Color.White.copy(alpha = 0.12f))),
         ),
         onCard = Blanco, muted = GrisClaro,
-        heroBright = Brush.linearGradient(listOf(NaranjaSol, Naranja)),
+        heroBright = SolidColor(Naranja),
         onHeroBright = Tinta,
         alert = Color(0xFF2C2C31).copy(alpha = 0.95f), onAlert = Blanco,
         warn = Naranja.copy(alpha = 0.92f), onWarn = Tinta,
         buttonShape = RoundedCornerShape(50),
-        button = Brush.linearGradient(listOf(NaranjaSol, Naranja)),
+        button = SolidColor(Naranja),
         onButton = Tinta,
         onTonal = Blanco,
     )
@@ -237,8 +238,8 @@ fun AlbaStyleProvider(content: @Composable () -> Unit) {
 }
 
 // ============================================================================
-// Fondo: para que el cristal se note, detrás hay manchas suaves de los colores
-// de siempre (melocotón, sol y gris) que se mueven muy despacio. Nada de neón.
+// Fondo: liso, con un único resplandor naranja muy suave arriba que se mueve
+// despacio para que el cristal se note. Minimalista: un solo color.
 // ============================================================================
 
 @Composable
@@ -265,9 +266,8 @@ fun StyleBackground(cloud: Float, saved: Boolean, content: @Composable BoxScope.
                 Brush.radialGradient(listOf(color.copy(alpha = alpha * k), Color.Transparent), Offset(cx, cy), r),
                 radius = r, center = Offset(cx, cy),
             )
-            blob(Naranja, 0.30f * warmth, w * (0.10f + 0.20f * t), h * (0.08f + 0.04f * t), w * 0.85f)
-            blob(NaranjaSol, 0.22f * warmth, w * (0.95f - 0.20f * t), h * (0.30f + 0.06f * t), w * 0.70f)
-            blob(GrisClaro, 0.35f, w * (0.30f + 0.25f * t), h * (0.70f - 0.06f * t), w * 0.90f)
+            // Un solo resplandor naranja, arriba: suficiente para que el cristal se note
+            blob(Naranja, 0.26f * warmth, w * (0.80f - 0.15f * t), h * (0.02f + 0.03f * t), w * 1.0f)
         }
         content()
     }

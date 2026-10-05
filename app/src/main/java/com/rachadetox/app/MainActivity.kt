@@ -39,8 +39,9 @@ object AlbaColors {
     val Noche = Color(0xFF1E2140)
     val NocheClara = Color(0xFF2B2F55)
     val Bruma = Color(0xFF5B5478)
-    val Alba = Color(0xFFF2A48A)
-    val Sol = Color(0xFFF6C667)
+    // Un solo naranja (y su versión clara) para toda la app: menos mezcla de colores
+    val Alba = Color(0xFFF7B488)
+    val Sol = Color(0xFFF28A3E)
     val Salvia = Color(0xFF8DB9A0)
     val Arena = Color(0xFFF7F1E8)
     val ArenaOscura = Color(0xFFEDE4D6)

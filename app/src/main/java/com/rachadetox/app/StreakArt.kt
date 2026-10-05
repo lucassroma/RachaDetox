@@ -49,9 +49,9 @@ import kotlin.math.sin
 
 // Dibujos sueltos: sol y nube (iconos de la semana y animaciones)
 
-private val CloudColor = Color(0xFF8F89AD)
-private val CloudLight = Color(0xFFC9C2D8)
-private val ChainColor = Color(0xFFC9C2D8)
+private val CloudColor = Color(0xFF9C9CA3)
+private val CloudLight = Color(0xFFCFCFD4)
+private val ChainColor = Color(0xFFCFCFD4)
 private val BarColor = Color(0xFF3A3D63)
 
 private fun lerpF(a: Float, b: Float, t: Float): Float = a + (b - a) * t

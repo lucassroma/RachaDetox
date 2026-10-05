@@ -1,5 +1,6 @@
 package com.rachadetox.app
 
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -362,6 +363,7 @@ fun MainScreen(resumeTick: Int) {
                     Column(Modifier.weight(1f)) {
                         Text(
                             "alba",
+                            color = AlbaColors.Sol,
                             style = MaterialTheme.typography.headlineLarge,
                             fontFamily = AlbaType.heading,
                             fontWeight = FontWeight.ExtraBold,
@@ -645,7 +647,6 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
         brush = if (bright) s.heroBright else null,
         contentColor = content,
     ) {
-        StreakCardDecoration(bright = bright, ink = content, modifier = Modifier.matchParentSize())
         Column(
             Modifier
                 .fillMaxWidth()
@@ -658,8 +659,9 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
                 Image(
                     painterResource(R.drawable.ic_sun),
                     contentDescription = null,
+                    colorFilter = ColorFilter.tint(if (bright) content else AlbaColors.Sol),
                     modifier = Modifier
-                        .size(64.dp)
+                        .size(56.dp)
                         .alpha(if (cloudy) 0.35f else 1f),
                 )
             }
@@ -870,8 +872,7 @@ fun GoalCard(
                 val barShape = RoundedCornerShape(50)
                 val barBrush = when {
                     over -> Brush.linearGradient(listOf(s.muted, s.muted))
-                    fraction >= 0.8f -> Brush.linearGradient(listOf(AlbaColors.Alba, Color(0xFFE07A50)))
-                    else -> Brush.linearGradient(listOf(AlbaColors.Sol, AlbaColors.Alba))
+                    else -> Brush.linearGradient(listOf(AlbaColors.Sol, AlbaColors.Sol))
                 }
                 Box(
                     Modifier
