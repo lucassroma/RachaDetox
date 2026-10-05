@@ -338,6 +338,8 @@ fun MainScreen(resumeTick: Int) {
     MoodTheme(moodCloud, moodSaved) {
     CompositionLocalProvider(LocalRevealed provides revealed) {
     StyleBackground(moodCloud, moodSaved) {
+    // La cabecera va sobre la franja naranja: texto oscuro (blanco en modo oscuro)
+    val headerInk = if (LocalAlbaStyle.current.dark) Color.White else Color(0xFF1F1F23)
     Scaffold(
         containerColor = Color.Transparent,
         floatingActionButton = {
@@ -363,7 +365,7 @@ fun MainScreen(resumeTick: Int) {
                     Column(Modifier.weight(1f)) {
                         Text(
                             "alba",
-                            color = AlbaColors.Sol,
+                            color = headerInk,
                             style = MaterialTheme.typography.headlineLarge,
                             fontFamily = AlbaType.heading,
                             fontWeight = FontWeight.ExtraBold,
@@ -371,7 +373,7 @@ fun MainScreen(resumeTick: Int) {
                         Text(
                             tr("Mira arriba.", "Look up.", "Guarda in alto."),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = headerInk.copy(alpha = 0.75f),
                         )
                     }
                     AlbaButton(
@@ -647,6 +649,7 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
         brush = if (bright) s.heroBright else null,
         contentColor = content,
     ) {
+        StreakCardDecoration(bright = bright, ink = content, modifier = Modifier.matchParentSize())
         Column(
             Modifier
                 .fillMaxWidth()
@@ -659,7 +662,7 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
                 Image(
                     painterResource(R.drawable.ic_sun),
                     contentDescription = null,
-                    colorFilter = ColorFilter.tint(if (bright) content else AlbaColors.Sol),
+                    colorFilter = ColorFilter.tint(AlbaColors.Sol),
                     modifier = Modifier
                         .size(56.dp)
                         .alpha(if (cloudy) 0.35f else 1f),
@@ -667,6 +670,7 @@ fun StreakCard(info: StreakInfo?, hasGoals: Boolean) {
             }
             Text(
                 "$shown",
+                color = if (bright) AlbaColors.Sol else content,
                 fontSize = 68.sp,
                 lineHeight = 78.sp,
                 fontFamily = AlbaType.heading,

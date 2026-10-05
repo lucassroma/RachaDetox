@@ -150,7 +150,7 @@ fun specFor(dark: Boolean): StyleSpec = if (!dark) {
             Brush.linearGradient(listOf(Color.White, Color.White.copy(alpha = 0.35f), GrisClaro.copy(alpha = 0.35f))),
         ),
         onCard = Tinta, muted = Gris,
-        heroBright = SolidColor(Naranja),
+        heroBright = SolidColor(Color.White.copy(alpha = 0.86f)),
         onHeroBright = Tinta,
         alert = Color(0xFF2A2A2E).copy(alpha = 0.92f), onAlert = Blanco,
         warn = Naranja.copy(alpha = 0.92f), onWarn = Tinta,
@@ -188,8 +188,8 @@ fun specFor(dark: Boolean): StyleSpec = if (!dark) {
             Brush.linearGradient(listOf(Color.White.copy(alpha = 0.30f), Color.White.copy(alpha = 0.06f), Color.White.copy(alpha = 0.12f))),
         ),
         onCard = Blanco, muted = GrisClaro,
-        heroBright = SolidColor(Naranja),
-        onHeroBright = Tinta,
+        heroBright = SolidColor(Color.White.copy(alpha = 0.14f)),
+        onHeroBright = Blanco,
         alert = Color(0xFF2C2C31).copy(alpha = 0.95f), onAlert = Blanco,
         warn = Naranja.copy(alpha = 0.92f), onWarn = Tinta,
         buttonShape = RoundedCornerShape(50),
@@ -266,8 +266,25 @@ fun StyleBackground(cloud: Float, saved: Boolean, content: @Composable BoxScope.
                 Brush.radialGradient(listOf(color.copy(alpha = alpha * k), Color.Transparent), Offset(cx, cy), r),
                 radius = r, center = Offset(cx, cy),
             )
-            // Un solo resplandor naranja, arriba: suficiente para que el cristal se note
-            blob(Naranja, 0.26f * warmth, w * (0.80f - 0.15f * t), h * (0.02f + 0.03f * t), w * 1.0f)
+            // Franja naranja arriba (≈38 % de la pantalla, fija aunque hagas scroll):
+            // la cabecera y el panel de la racha flotan encima como cristal.
+            // Al pasarte se apaga hacia gris; con la racha salvada se aclara.
+            // En modo oscuro, un naranja tostado para que el texto blanco se lea bien
+            val orange = if (s.dark) Color(0xFFB85E22) else Naranja
+            val sheet = when {
+                cloud > 0f -> lerp(orange, s.cloudyBackground, cloud.coerceIn(0f, 1f))
+                saved -> lerp(orange, if (s.dark) s.savedBackground else NaranjaSuave, 0.6f)
+                else -> orange
+            }
+            val radius = 40.dp.toPx()
+            drawRoundRect(
+                sheet,
+                topLeft = Offset(0f, -radius),
+                size = androidx.compose.ui.geometry.Size(w, h * 0.38f + radius),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius, radius),
+            )
+            // Un brillo claro que se mueve despacio sobre el naranja, para que el cristal se note
+            blob(Color.White, 0.22f * warmth, w * (0.80f - 0.25f * t), h * (0.04f + 0.05f * t), w * 0.75f)
         }
         content()
     }
